@@ -1,4 +1,4 @@
-package br.com.dunnastecnologia.chamados.infrastructure.service;
+package br.com.dunnastecnologia.chamados.unit.service;
 
 import br.com.dunnastecnologia.chamados.application.Security.AuthenticatedUser;
 import br.com.dunnastecnologia.chamados.domain.model.Colaborador;
@@ -14,6 +14,7 @@ import br.com.dunnastecnologia.chamados.infrastructure.repository.TipoChamadoRep
 import br.com.dunnastecnologia.chamados.infrastructure.repository.UnidadeRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.UsuarioRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.service.support.AuthenticatedUserValidator;
+import br.com.dunnastecnologia.chamados.infrastructure.service.UsuarioService;
 import br.com.dunnastecnologia.chamados.domain.validation.ValidationLimits;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;

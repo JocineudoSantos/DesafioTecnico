@@ -1,7 +1,8 @@
-package br.com.dunnastecnologia.chamados.infrastructure.service;
+package br.com.dunnastecnologia.chamados.unit.service;
 
 import br.com.dunnastecnologia.chamados.domain.model.Morador;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.UsuarioRepository;
+import br.com.dunnastecnologia.chamados.infrastructure.service.AuthenticationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

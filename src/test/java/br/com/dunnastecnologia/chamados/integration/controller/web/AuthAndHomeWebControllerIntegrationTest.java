@@ -1,5 +1,8 @@
-package br.com.dunnastecnologia.chamados.infrastructure.controller.web;
+package br.com.dunnastecnologia.chamados.integration.controller.web;
 
+import br.com.dunnastecnologia.chamados.infrastructure.controller.web.AuthWebController;
+import br.com.dunnastecnologia.chamados.infrastructure.controller.web.HomeWebController;
+import br.com.dunnastecnologia.chamados.infrastructure.controller.web.WebControllerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;

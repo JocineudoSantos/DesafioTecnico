@@ -1,8 +1,9 @@
-package br.com.dunnastecnologia.chamados.infrastructure.repository;
+package br.com.dunnastecnologia.chamados.integration.repository;
 
 import br.com.dunnastecnologia.chamados.domain.model.Chamado;
 import br.com.dunnastecnologia.chamados.domain.model.StatusChamado;
 import br.com.dunnastecnologia.chamados.domain.model.TipoChamado;
+import br.com.dunnastecnologia.chamados.infrastructure.repository.ChamadoRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

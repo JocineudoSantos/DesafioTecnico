@@ -1,4 +1,4 @@
-package br.com.dunnastecnologia.chamados.infrastructure.controller.web;
+package br.com.dunnastecnologia.chamados.integration.controller.web;
 
 import br.com.dunnastecnologia.chamados.application.UserCase.AnexoChamadoUseCases;
 import br.com.dunnastecnologia.chamados.application.UserCase.AnexoComentarioUseCases;
@@ -13,6 +13,8 @@ import br.com.dunnastecnologia.chamados.domain.model.StatusChamado;
 import br.com.dunnastecnologia.chamados.domain.model.TipoChamado;
 import br.com.dunnastecnologia.chamados.domain.model.Unidade;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.api.MoradorChamadoApiController;
+import br.com.dunnastecnologia.chamados.infrastructure.controller.web.MoradorWebController;
+import br.com.dunnastecnologia.chamados.infrastructure.controller.web.WebControllerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;

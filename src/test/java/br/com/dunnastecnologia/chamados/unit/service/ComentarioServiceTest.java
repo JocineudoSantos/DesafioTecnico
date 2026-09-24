@@ -1,4 +1,4 @@
-package br.com.dunnastecnologia.chamados.infrastructure.service;
+package br.com.dunnastecnologia.chamados.unit.service;
 
 import br.com.dunnastecnologia.chamados.application.Security.AuthenticatedUser;
 import br.com.dunnastecnologia.chamados.domain.model.Administrador;
@@ -9,6 +9,7 @@ import br.com.dunnastecnologia.chamados.infrastructure.exception.BusinessRuleExc
 import br.com.dunnastecnologia.chamados.infrastructure.repository.ComentarioRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.UsuarioRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.service.support.ChamadoAccessSupport;
+import br.com.dunnastecnologia.chamados.infrastructure.service.ComentarioService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

@@ -1,4 +1,4 @@
-package br.com.dunnastecnologia.chamados.infrastructure.controller.web;
+package br.com.dunnastecnologia.chamados.integration.controller.web;
 
 import br.com.dunnastecnologia.chamados.domain.model.Administrador;
 import br.com.dunnastecnologia.chamados.domain.model.Colaborador;

@@ -1,9 +1,10 @@
-package br.com.dunnastecnologia.chamados.infrastructure.config;
+package br.com.dunnastecnologia.chamados.unit.config;
 
 import br.com.dunnastecnologia.chamados.domain.model.Administrador;
 import br.com.dunnastecnologia.chamados.domain.model.StatusChamado;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.StatusChamadoRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.UsuarioRepository;
+import br.com.dunnastecnologia.chamados.infrastructure.config.AdminBootstrapConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

@@ -1,6 +1,7 @@
-package br.com.dunnastecnologia.chamados.infrastructure.service;
+package br.com.dunnastecnologia.chamados.unit.service;
 
 import br.com.dunnastecnologia.chamados.infrastructure.repository.ChamadoRepository;
+import br.com.dunnastecnologia.chamados.infrastructure.service.ChamadoAtrasoScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
