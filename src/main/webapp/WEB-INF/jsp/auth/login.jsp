@@ -26,14 +26,14 @@
             <c:if test="${param.error eq 'true'}">
                 <div class="alert alert-danger" data-alert>
                     <span>Email ou senha invalidos.</span>
-                    <button type="button" class="alert-close" data-dismiss-alert aria-label="Fechar">×</button>
+                    <button type="button" class="alert-close" data-dismiss-alert aria-label="Fechar">&times;</button>
                 </div>
             </c:if>
 
             <c:if test="${param.logout eq 'true'}">
                 <div class="alert alert-success" data-alert>
                     <span>Sessao encerrada com sucesso.</span>
-                    <button type="button" class="alert-close" data-dismiss-alert aria-label="Fechar">×</button>
+                    <button type="button" class="alert-close" data-dismiss-alert aria-label="Fechar">&times;</button>
                 </div>
             </c:if>
 
