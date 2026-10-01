@@ -15,6 +15,7 @@ import br.com.dunnastecnologia.chamados.domain.model.Unidade;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.api.MoradorChamadoApiController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.MoradorWebController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.WebControllerSupport;
+import br.com.dunnastecnologia.chamados.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -44,9 +45,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @WebMvcTest({MoradorWebController.class, MoradorChamadoApiController.class})
-@AutoConfigureMockMvc(addFilters = false)
-@Import(WebControllerSupport.class)
+@AutoConfigureMockMvc
+@Import({WebControllerSupport.class, WebTestSecurityConfig.class})
 class MoradorWebControllerIntegrationTest {
+
+    @MockitoBean
+    private JwtService jwtService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -90,6 +94,7 @@ class MoradorWebControllerIntegrationTest {
         TipoChamado tipoChamado = new TipoChamado();
         tipoChamado.setId(tipoChamadoId);
         tipoChamado.setTitulo("Vazamento");
+        tipoChamado.setPrazoHoras(24);
 
         when(moradorUseCases.listarMeusChamados(morador, statusId, unidadeId, tipoChamadoId, dataAbertura, pageRequest))
                 .thenReturn(new PageResult<>(List.of(), 0, 0, 3, 7));

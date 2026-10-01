@@ -3,11 +3,13 @@ package br.com.dunnastecnologia.chamados.integration.controller.web;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.AuthWebController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.HomeWebController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.WebControllerSupport;
+import br.com.dunnastecnologia.chamados.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -17,9 +19,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @WebMvcTest({AuthWebController.class, HomeWebController.class})
-@AutoConfigureMockMvc(addFilters = false)
-@Import(WebControllerSupport.class)
+@AutoConfigureMockMvc
+@Import({WebControllerSupport.class, WebTestSecurityConfig.class})
 class AuthAndHomeWebControllerIntegrationTest {
+
+    @MockitoBean
+    private JwtService jwtService;
 
     @Autowired
     private MockMvc mockMvc;

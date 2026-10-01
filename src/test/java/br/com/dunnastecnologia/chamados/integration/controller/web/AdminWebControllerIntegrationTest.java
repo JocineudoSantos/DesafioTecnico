@@ -19,6 +19,7 @@ import br.com.dunnastecnologia.chamados.infrastructure.controller.api.TipoChamad
 import br.com.dunnastecnologia.chamados.infrastructure.controller.api.UsuarioApiController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.AdminWebController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.WebControllerSupport;
+import br.com.dunnastecnologia.chamados.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -60,9 +61,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         TipoChamadoApiController.class,
         UsuarioApiController.class
 })
-@AutoConfigureMockMvc(addFilters = false)
-@Import(WebControllerSupport.class)
+@AutoConfigureMockMvc
+@Import({WebControllerSupport.class, WebTestSecurityConfig.class})
 class AdminWebControllerIntegrationTest {
+
+    @MockitoBean
+    private JwtService jwtService;
 
     @Autowired
     private MockMvc mockMvc;
