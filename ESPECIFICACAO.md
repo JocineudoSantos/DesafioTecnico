@@ -47,23 +47,72 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - **Validação:** o teste de regressão passou e a suíte completa ficou com 57 testes aprovados.
 
 
-## Codificação do símbolo nos alertas
+## Codificação de símbolos nas telas
 
 - **Problema encontrado:** o símbolo de fechar alertas era exibido como `Ã` no login e nas mensagens compartilhadas.
 - **Causa e decisão:** o caractere literal nos JSPs era interpretado incorretamente. Substituí por `&times;`, entidade HTML que o navegador renderiza corretamente.
 - **Arquivos afetados:** `login.jsp` e o fragmento compartilhado `alerts.jspf`, cobrindo avisos de erro e sucesso.
-- **Validação e limite:** reconstruí e iniciei o container da pasta `DesafioTecnico`; `/login?error=true` respondeu HTTP 200 com a entidade correta. Os testes automatizados foram ignorados durante o build desta alteração.
+
+- **Problema adicional:** o separador entre autor e data do comentário, e entre tipo e tamanho do anexo, também aparecia corrompido nas telas de chamados.
+- **Correção:** substituí os caracteres literais por `&bull;` nos detalhes de chamados do morador, colaborador e administrador.
+- **Validação e limite:** reconstruí e iniciei o container da pasta `DesafioTecnico`; `/login?error=true` respondeu HTTP 200. Os separadores `&bull;` foram incluídos no build das telas de morador, colaborador e administrador. O Dockerfile ignorou os testes automatizados neste build, então a conferência visual dos detalhes deve ser feita no navegador.
+
+## Áreas comuns e solicitação de reservas — primeira etapa
+
+### Comportamento entregue
+
+- Administradores podem listar áreas ativas e inativas, cadastrar, editar e desativar áreas comuns.
+- Moradores ativos podem consultar uma área e um intervalo, ver se há reservas aprovadas conflitantes, solicitar o período e consultar somente seu próprio histórico. Toda solicitação criada nesta etapa tem estado `SOLICITADA`.
+- A interface acrescenta entradas próprias para administrador e morador. As rotas exigem os respectivos perfis, e os serviços repetem a validação de perfil para que as regras não dependam apenas da interface web.
+
+### Organização técnica e motivo
+
+- **Casos de uso (`AreaComumUseCases`, `ReservaUseCases`):** declaram as operações expostas pelos serviços. Essa fronteira mantém controllers web dependentes das capacidades de aplicação, sem concentrar validação e persistência nas telas.
+- **Modelos (`AreaComum`, `Reserva`, `ReservaStatus`):** representam os dados e estados persistidos da funcionalidade e suas relações com o morador e a área.
+- **Repositórios:** concentram consultas para áreas ativas, reservas do morador e sobreposição de períodos. A verificação de sobreposição usa início anterior ao fim pesquisado e fim posterior ao início pesquisado, filtrando por área e estado aprovado.
+- **Serviços (`AreaComumService`, `ReservaService`):** validam perfil, estado ativo da área e do morador, limites do cadastro e regras de intervalo; associam a reserva ao morador autenticado e salvam a solicitação como `SOLICITADA`.
+- **Controllers e formulários web:** convertem a entrada da tela em parâmetros do caso de uso e formatam o retorno para JSP. A tela administrativa cuida do cadastro de áreas; a tela do morador reúne consulta de disponibilidade, pedido de reserva e histórico próprio.
+- **Configuração de tempo:** `ReservaTimeConfig` fornece `Clock`; `APP_TIMEZONE` define o fuso de exibição e conversão, com padrão `America/Sao_Paulo`. Isso evita depender do relógio do host nos serviços e testes.
+- **Persistência e diagrama:** a V19 cria `areas_comuns` e `reservas`, com chaves estrangeiras, restrições de intervalo/estado e índices para listagem por morador e busca por área, estado e período. Atualizei `diagrama-relacional.drawio.svg` para mostrar as novas relações.
+
+### Regras, interpretações e alternativas
+
+- O fim precisa ser posterior ao início; ao solicitar, o início precisa estar no futuro. Intervalos são semiabertos `[início, fim)`, portanto uma reserva que termina exatamente quando outra começa não conflita.
+- Só `APROVADA` ocupa o período. A consulta e as solicitações `SOLICITADA` não bloqueiam a disponibilidade. Essa leitura segue o enunciado, que distingue pedidos pendentes de reservas aprovadas.
+- A área tem nome obrigatório, descrição opcional e indicador ativo. Escolhi desativação lógica em vez de exclusão física para preservar o vínculo e o histórico das reservas.
+- Usei tabelas relacionais e PostgreSQL com uma nova migração Flyway, em vez de criar esquema em tempo de execução pelo Hibernate ou alterar migrações anteriores. Isso mantém o histórico de schema e permite validar a implantação em banco limpo e existente.
+- Usei `TIMESTAMP WITH TIME ZONE`/`Instant` para persistir instantes sem depender do fuso local do servidor; a conversão para a entrada e apresentação da interface ocorre no fuso configurado.
+- O morador da solicitação vem da identidade autenticada, em vez de aceitar um identificador de morador enviado pelo formulário. Assim, o cliente não escolhe em nome de quem criar a reserva.
+- Capacidade da área, expediente, duração máxima, antecedência mínima além de início futuro, cobrança e participação de visitantes ficaram de fora: o enunciado não define essas regras e incluí-las exigiria decisões de negócio adicionais.
+
+### Limitações, riscos e validação
+
+- A disponibilidade exibida é uma consulta naquele instante. Pode mudar antes de uma solicitação ou futura aprovação administrativa.
+- A aprovação, negativa com justificativa, cancelamento e calendário administrativo não fazem parte desta etapa.
+- A consulta seguida do salvamento não protege contra duas aprovações concorrentes. A próxima etapa precisa tornar a aprovação atômica no PostgreSQL e incluir teste concorrente; até lá, a garantia contra dupla aprovação não está implementada.
+- Foram adicionados testes unitários para as regras dos serviços, testes web para navegação/perfis e testes de repositório com PostgreSQL via Testcontainers. No `mvn verify`, a suíte teve 72 testes aprovados, sem falhas, erros ou ignorados. JaCoCo mediu 77,4% de cobertura de linhas nas classes incluídas para a funcionalidade, acima do mínimo de 40% definido no desafio.
+- **Próxima etapa:** fila administrativa de solicitações, aprovação protegida contra conflito concorrente e negativa com justificativa. Cancelamento e calendário ficam para etapas posteriores, documentadas abaixo conforme forem implementadas.
+
+## Codificação UTF-8 nas respostas
+
+- **Problema encontrado:** os acentos do título da aba e dos rótulos de áreas comuns ainda apareciam corrompidos, embora os JSPs estivessem gravados corretamente e o servidor declarasse UTF-8.
+- **Decisão e justificativa:** explicitei UTF-8 nos recursos Maven e forcei essa codificação nas respostas do servidor. Para o título dinâmico e os rótulos desta funcionalidade, usei entidades HTML, que o navegador decodifica sem depender da codificação dos caracteres acentuados no arquivo.
+- **Validação:** `mvn -DskipTests package` e os 5 testes web da funcionalidade concluíram sem erros; os testes verificam também o título da página. Reconstruí o container da aplicação. `/login` respondeu HTTP 200 com `Content-Type: text/html; charset=UTF-8`.
+- **Compatibilidade Spring Boot 4:** substituí as propriedades antigas `server.servlet.encoding.*` por `spring.servlet.encoding.*`, prefixo esperado na versão usada. O build Maven e a inicialização do container concluíram; o Flyway aceitou as 19 migrações existentes.
+- **Integridade Flyway:** não manter comentários novos em V19, pois a migração já foi aplicada e qualquer alteração muda seu checksum. Restaurei o SQL original da V19, sem executar `repair`; comentários explicativos devem ficar na especificação ou em uma futura migração.
+- **Correção adicional:** os cabeçalhos `Descrição`, `Situação` e `Ações` da tabela de áreas também passaram a usar entidades HTML após continuarem corrompidos na tela.
+- **Correção no histórico do morador:** substituí por entidades HTML os acentos restantes em `Área`, `Início`, `Meu histórico`, `Solicitações aparecerão` e textos sobre período.
 
 ## Uso de inteligência artificial
 
-- **Ferramenta usada:** OpenAI Codex, para inspecionar arquivos, propor e aplicar alterações em testes e documentação, investigar falhas e executar comandos de compilação e teste.
-- **Sugestões aceitas da IA:** usar Testcontainers com PostgreSQL em vez de H2; simular `JwtService` sem substituir o filtro; e restaurar a configuração do Maven Wrapper.
+- **Ferramentas usadas:** OpenAI Codex e um agente delegado, para inspecionar e implementar alterações em código, testes e documentação, investigar falhas e executar comandos de compilação e teste.
+- **Sugestões aceitas da IA:** usar Testcontainers com PostgreSQL em vez de H2; simular `JwtService` sem substituir o filtro; restaurar a configuração do Maven Wrapper; e modelar áreas/reservas em nova migração Flyway com validação de regras no serviço.
 - **Sugestões modificadas ou rejeitadas:** a primeira tentativa de simular o próprio filtro JWT foi revertida quando os testes mostraram que as requisições eram interrompidas antes dos controllers. A possibilidade de adaptar a consulta para H2 foi rejeitada porque o desafio e o projeto usam PostgreSQL e o SQL é específico desse banco.
-- **Validação do conteúdo e do código:** conferi as declarações de pacote e imports, revisei o SQL e a versão do PostgreSQL no Compose, compilei e executei a suíte completa com JDK 21 e Docker Desktop. Também iniciei o Maven Wrapper para confirmar sua configuração e subi a aplicação completa pelo Compose.
+- **Validação do conteúdo e do código:** conferi as declarações de pacote e imports, revisei o SQL e a versão do PostgreSQL no Compose, compilei e executei a suíte completa com JDK 21 e Docker Desktop. Também iniciei o Maven Wrapper para confirmar sua configuração e subi a aplicação completa pelo Compose. Para a etapa de áreas e reservas, executei `mvn verify`: 72 testes passaram; JaCoCo mediu 77,4% de cobertura de linhas nas classes incluídas para a funcionalidade e aprovou o mínimo de 40%. O Compose iniciou a aplicação e o Flyway validou 19 migrações e aplicou a V19 no PostgreSQL 16; `/login` respondeu HTTP 200.
 - **Decisões não delegadas à IA:** o banco alvo PostgreSQL, a preservação do SQL e das regras de negócio, o escopo desta correção e a decisão de não tratar uma suíte parcial como aprovada foram definidos a partir do desafio e das orientações do usuário. A IA auxiliou na implementação e verificação, não definiu critérios de negócio ou aceite.
 
 ## Resultado da validação
 
-A execução completa de `mvnw.cmd test`, com JDK 21 e Docker Desktop ativo, terminou com **57 testes executados, 0 falhas, 0 erros e 0 ignorados**. O teste de repositório utilizou PostgreSQL 16 pelo Testcontainers.
+A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após esta etapa, `mvn verify` terminou com **72 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo cobriu controllers, serviços, modelos e formulários da funcionalidade: **77,4%** de linhas, acima do mínimo de 40%.
 
-A execução de `docker compose up --build -d` iniciou a aplicação e o PostgreSQL em containers. O Flyway aplicou as 18 migrações e a aplicação iniciou sem erros. A rota `/login` respondeu HTTP 200; `/admin`, `/colaborador` e `/morador` redirecionaram para `/login` sem sessão. Para evitar publicar segredos locais, `.env` foi criado a partir de `.env.example` e adicionado ao `.gitignore`.
+A execução de `docker compose up --build -d` iniciou a aplicação e o PostgreSQL em containers. O Flyway validou 19 migrações e aplicou a V19; a aplicação iniciou sem erros. A rota `/login` respondeu HTTP 200; `/admin`, `/colaborador` e `/morador` redirecionaram para `/login` sem sessão. Para evitar publicar segredos locais, `.env` foi criado a partir de `.env.example` e adicionado ao `.gitignore`.

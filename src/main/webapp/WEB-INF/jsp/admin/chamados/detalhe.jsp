@@ -93,7 +93,7 @@
                                     <article class="timeline-item">
                                         <header>
                                             <strong>${comentario.autorNome}</strong>
-                                            <span>${comentario.autorRole} • ${comentario.dataCriacaoFormatada}</span>
+                                            <span>${comentario.autorRole} &bull; ${comentario.dataCriacaoFormatada}</span>
                                         </header>
                                         <p>${comentario.mensagem}</p>
                                         <c:if test="${not empty comentario.anexos}">
@@ -102,7 +102,7 @@
                                                     <div class="list-row">
                                                         <div>
                                                             <strong>${anexoComentario.nomeArquivo}</strong>
-                                                            <span>${anexoComentario.contentType} • ${anexoComentario.tamanhoFormatado}</span>
+                                                            <span>${anexoComentario.contentType} &bull; ${anexoComentario.tamanhoFormatado}</span>
                                                         </div>
                                                         <a href="${ctx}/admin/chamados/${chamado.id}/comentarios/${comentario.id}/anexos/${anexoComentario.id}" class="btn btn-secondary">Baixar anexo</a>
                                                     </div>
@@ -136,7 +136,7 @@
                                     <div class="list-row">
                                         <div>
                                             <strong>${anexo.nomeArquivo}</strong>
-                                            <span>${anexo.contentType} • ${anexo.tamanhoFormatado}</span>
+                                            <span>${anexo.contentType} &bull; ${anexo.tamanhoFormatado}</span>
                                         </div>
                                         <a href="${ctx}/admin/chamados/${chamado.id}/anexos/${anexo.id}" class="btn btn-secondary">Baixar</a>
                                     </div>

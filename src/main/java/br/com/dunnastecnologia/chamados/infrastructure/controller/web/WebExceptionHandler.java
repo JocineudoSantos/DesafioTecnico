@@ -17,7 +17,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
         HomeWebController.class,
         UsuarioApiController.class,
         AdminWebController.class,
+        AdminAreaComumWebController.class,
         MoradorWebController.class,
+        MoradorReservaWebController.class,
         ColaboradorWebController.class
 })
 @Hidden
