@@ -84,7 +84,7 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - A aprovação, negativa com justificativa, cancelamento e calendário administrativo não fazem parte desta etapa.
 - Na primeira etapa, a consulta seguida do salvamento ainda não protegia contra duas aprovações concorrentes; essa limitação foi resolvida nesta segunda etapa com bloqueio transacional no PostgreSQL e teste concorrente.
 - Foram adicionados testes unitários para as regras dos serviços, testes web para navegação/perfis e testes de repositório com PostgreSQL via Testcontainers. No `mvn verify`, a suíte teve 72 testes aprovados, sem falhas, erros ou ignorados. JaCoCo mediu 77,4% de cobertura de linhas nas classes incluídas para a funcionalidade, acima do mínimo de 40% definido no desafio.
-- **Continuidade:** a moderação administrativa foi registrada na etapa seguinte. O cancelamento e a interface de lista/calendário serão documentados em etapas próprias.
+- **Continuidade:** a moderação administrativa e as interfaces de lista/calendário foram registradas nas etapas seguintes. O cancelamento será documentado em etapa própria.
 
 ## Áreas comuns e reservas — segunda etapa: decisões administrativas
 
@@ -101,7 +101,7 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - **Concorrência:** cada aprovação bloqueia a solicitação e, em seguida, a linha da área no PostgreSQL. Decisões de solicitações diferentes para a mesma área são serializadas antes da consulta de conflito. Escolhi esse bloqueio pessimista em vez de depender apenas de uma consulta seguida de atualização, que permitiria corrida, e em vez de introduzir uma extensão PostgreSQL e uma restrição de exclusão para intervalos.
 - **Limite da garantia:** a proteção depende das aprovações passarem pelo serviço da aplicação. Escritas diretas no banco que não usem o mesmo bloqueio podem contornar a regra. O bloqueio por área pode reduzir a concorrência quando muitas aprovações da mesma área ocorrem ao mesmo tempo.
 - **Histórico:** uma nova migração Flyway adiciona instante, autor e justificativa da decisão; migrações já aplicadas permanecem inalteradas. O autor referencia `usuarios`, pois a identidade autenticada é a origem confiável do administrador.
-- **Fora desta parte:** telas e calendário administrativo, cancelamento, notificações e integrações externas. A próxima parte de interface deverá expor a consulta administrativa e a agenda/calendário exigidos pelo desafio.
+- **Fora desta parte:** telas administrativas, calendário, cancelamento, notificações e integrações externas. A consulta administrativa foi implementada na terceira etapa e a agenda/calendário na quarta; o cancelamento permanece para etapa própria.
 - **Com mais tempo:** acrescentaria auditoria imutável de todas as transições e testes de carga com muitas decisões para medir contenção por área.
 
 ### Validação desta parte
@@ -120,9 +120,24 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 
 ### Decisões técnicas e limites
 
-- A consulta é exibida em tabela nesta etapa. A agenda/calendário para administrador e morador permanece para a próxima etapa, conforme o RF-05 do desafio.
+- A consulta é exibida em tabela nesta etapa. A agenda/calendário para administrador e morador foi implementada na quarta etapa, conforme o RF-05 do desafio.
 - O motivo é escapado pelo JSP ao ser exibido e o envio usa proteção CSRF do projeto.
 - **Validação:** os 11 testes web da funcionalidade passaram, incluindo a restrição por perfil, os dados da fila, o envio das decisões e a resposta a uma justificativa vazia. `mvn verify` executou 84 testes, sem falhas, erros ou ignorados. JaCoCo registrou 83,1% de cobertura de linhas nas classes incluídas para áreas e reservas, acima dos 40% exigidos.
+
+## Áreas comuns e reservas — quarta etapa: agenda mensal
+
+### Comportamento implementado
+
+- Administradores consultam em calendário mensal as solicitações pendentes e reservas aprovadas de todas as áreas, com identificação do morador.
+- Moradores consultam no calendário somente as próprias solicitações pendentes e reservas aprovadas; a tabela de histórico continua disponível.
+- A navegação permite avançar e voltar meses. O calendário usa o fuso configurado pela aplicação e destaca o dia atual.
+
+### Decisões e limites
+
+- A visualização mensal foi escolhida para atender à consulta por calendário sem adicionar dependência externa de calendário JavaScript.
+- Solicitações negadas permanecem no histórico/lista, mas não são exibidas na agenda, pois não representam períodos reservados. Solicitações pendentes são identificadas e não bloqueiam a disponibilidade, conforme as regras definidas na primeira etapa.
+- A grade reserva seis semanas e considera eventos que cruzam os limites do mês; um evento aparece em cada dia cujo intervalo se sobrepõe à reserva.
+- **Validação:** `mvn verify` concluiu com 86 testes, sem falhas, erros ou ignorados. Os novos testes web verificam os eventos do mês, a exclusão de solicitações negadas da agenda e o escopo dos dados do morador. O JaCoCo aprovou o limite mínimo de 40% para as classes incluídas de áreas e reservas. Os testes de repositório e migrações usaram PostgreSQL 16 pelo Testcontainers.
 
 ## Uso de inteligência artificial
 
@@ -134,6 +149,6 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 
 ## Resultado da validação
 
-A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após a terceira etapa, `mvn verify` terminou com **84 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório e das migrações usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo das classes da funcionalidade registrou **83,1%** de cobertura de linhas, acima do mínimo de 40%.
+A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após a quarta etapa, `mvn verify` terminou com **86 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório e das migrações usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo das classes de áreas e reservas aprovou o mínimo de 40% de cobertura de linhas.
 
 A execução de `docker compose up --build -d` iniciou a aplicação e o PostgreSQL em containers. O Flyway validou 19 migrações e aplicou a V19; a aplicação iniciou sem erros. A rota `/login` respondeu HTTP 200; `/admin`, `/colaborador` e `/morador` redirecionaram para `/login` sem sessão. Para evitar publicar segredos locais, `.env` foi criado a partir de `.env.example` e adicionado ao `.gitignore`.

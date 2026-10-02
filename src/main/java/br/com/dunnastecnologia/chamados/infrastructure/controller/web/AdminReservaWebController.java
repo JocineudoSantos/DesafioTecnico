@@ -15,6 +15,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,13 +37,25 @@ public class AdminReservaWebController {
     }
 
     @GetMapping
-    public String listar(Authentication authentication, Model model) {
+    public String listar(Authentication authentication, Model model,
+                         @RequestParam(required = false) String mes,
+                         @RequestParam(name = "view", defaultValue = "lista") String visualizacao) {
         var administrador = support.authenticatedUser(authentication);
-        var reservas = reservaUseCases.listarParaAdministracao(administrador).stream()
+        var reservasDominio = reservaUseCases.listarParaAdministracao(administrador);
+        var reservas = reservasDominio.stream()
                 .map(this::mapearReserva)
                 .toList();
         model.addAttribute("pageTitle", "Solicita&ccedil;&otilde;es de reserva");
+        YearMonth mesCalendario = new ReservaCalendarioModelBuilder(clock).mesSelecionado(mes);
+        String modo = "calendario".equalsIgnoreCase(visualizacao) ? "calendario" : "lista";
+        ReservaCalendarioModelBuilder calendario = new ReservaCalendarioModelBuilder(clock);
         model.addAttribute("reservas", reservas);
+        model.addAttribute("diasCalendario", calendario.construirDias(reservasDominio, mesCalendario, true));
+        model.addAttribute("mesSelecionado", mesCalendario.toString());
+        model.addAttribute("mesExibicao", calendario.rotuloMes(mesCalendario));
+        model.addAttribute("mesAnterior", mesCalendario.minusMonths(1));
+        model.addAttribute("mesSeguinte", mesCalendario.plusMonths(1));
+        model.addAttribute("visualizacao", modo);
         model.addAttribute("quantidadePendentes", reservas.stream()
                 .filter(reserva -> "SOLICITADA".equals(reserva.get("status")))
                 .count());

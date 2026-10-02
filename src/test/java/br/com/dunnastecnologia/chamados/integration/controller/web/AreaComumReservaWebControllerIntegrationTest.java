@@ -23,13 +23,17 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.LocalDate;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -200,5 +204,89 @@ class AreaComumReservaWebControllerIntegrationTest {
                         java.util.UUID.fromString("00000000-0000-0000-0000-000000000003"),
                         "morador@condominio.local", "ROLE_MORADOR")),
                 eq(java.util.UUID.fromString("00000000-0000-0000-0000-000000000010")), any(), any());
+    }
+
+    @Test
+    void calendarioAdministrativoMostraPendentesEAprovadasDoMesSelecionado() throws Exception {
+        Reserva aprovada = criarReservaCalendario(ReservaStatus.APROVADA,
+                "2027-05-10T13:00:00Z", "2027-05-10T14:00:00Z", "Salão", "Ana Moradora");
+        Reserva solicitada = criarReservaCalendario(ReservaStatus.SOLICITADA,
+                "2027-05-10T15:00:00Z", "2027-05-10T16:00:00Z", "Churrasqueira", "Bruno Morador");
+        Reserva negada = criarReservaCalendario(ReservaStatus.NEGADA,
+                "2027-05-10T17:00:00Z", "2027-05-10T18:00:00Z", "Sala", "Carla Moradora");
+        when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
+        when(reservaUseCases.listarParaAdministracao(any())).thenReturn(List.of(aprovada, solicitada, negada));
+
+        MvcResult resultado = mockMvc.perform(get("/admin/reservas")
+                        .param("view", "calendario")
+                        .param("mes", "2027-05")
+                        .with(authentication(WebTestAuthenticationFactory.administrador())))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("visualizacao", "calendario"))
+                .andExpect(model().attribute("mesExibicao", "Maio de 2027"))
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> dias = (List<Map<String, Object>>) resultado.getModelAndView()
+                .getModel().get("diasCalendario");
+        assertEquals(42, dias.size());
+        Map<String, Object> dia = dias.stream()
+                .filter(item -> LocalDate.of(2027, 5, 10).equals(item.get("data")))
+                .findFirst().orElseThrow();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> eventos = (List<Map<String, Object>>) dia.get("reservas");
+        assertEquals(2, eventos.size());
+        assertTrue(eventos.stream().anyMatch(evento -> "Ana Moradora".equals(evento.get("morador"))
+                && "APROVADA".equals(evento.get("status"))));
+        assertTrue(eventos.stream().anyMatch(evento -> "Bruno Morador".equals(evento.get("morador"))
+                && "SOLICITADA".equals(evento.get("status"))));
+    }
+
+    @Test
+    void calendarioDoMoradorUsaSomenteReservasDaContaAutenticada() throws Exception {
+        Reserva propria = criarReservaCalendario(ReservaStatus.APROVADA,
+                "2027-05-10T13:00:00Z", "2027-05-10T14:00:00Z", "Salão", "Morador da conta");
+        when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
+        when(reservaUseCases.listarMinhasReservas(any())).thenReturn(List.of(propria));
+
+        MvcResult resultado = mockMvc.perform(get("/morador/reservas")
+                        .param("view", "calendario")
+                        .param("mes", "2027-05")
+                        .with(authentication(WebTestAuthenticationFactory.morador())))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("visualizacao", "calendario"))
+                .andExpect(model().attribute("mesExibicao", "Maio de 2027"))
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> dias = (List<Map<String, Object>>) resultado.getModelAndView()
+                .getModel().get("diasCalendario");
+        Map<String, Object> dia = dias.stream()
+                .filter(item -> LocalDate.of(2027, 5, 10).equals(item.get("data")))
+                .findFirst().orElseThrow();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> eventos = (List<Map<String, Object>>) dia.get("reservas");
+        assertEquals(1, eventos.size());
+        assertEquals("Salão", eventos.get(0).get("area"));
+        assertFalse(eventos.get(0).containsKey("morador"));
+        verify(reservaUseCases).listarMinhasReservas(any());
+        verify(reservaUseCases, never()).listarParaAdministracao(any());
+    }
+
+    private Reserva criarReservaCalendario(
+            ReservaStatus status, String inicio, String fim, String nomeArea, String nomeMorador
+    ) {
+        AreaComum area = new AreaComum();
+        area.setNome(nomeArea);
+        Morador morador = new Morador();
+        morador.setNome(nomeMorador);
+        Reserva reserva = new Reserva();
+        reserva.setAreaComum(area);
+        reserva.setMorador(morador);
+        reserva.setInicio(Instant.parse(inicio));
+        reserva.setFim(Instant.parse(fim));
+        reserva.setStatus(status);
+        reserva.setCriadaEm(Instant.parse("2027-05-01T00:00:00Z"));
+        return reserva;
     }
 }

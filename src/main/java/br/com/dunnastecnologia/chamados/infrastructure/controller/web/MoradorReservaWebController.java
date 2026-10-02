@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.UUID;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -54,6 +55,8 @@ public class MoradorReservaWebController {
             @RequestParam(required = false) UUID areaId,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime inicio,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime fim,
+            @RequestParam(required = false) String mes,
+            @RequestParam(name = "view", defaultValue = "lista") String visualizacao,
             Model model
     ) {
         var user = support.authenticatedUser(authentication);
@@ -61,6 +64,15 @@ public class MoradorReservaWebController {
         var reservas = reservaUseCases.listarMinhasReservas(user);
         model.addAttribute("pageTitle", "&Aacute;reas comuns e reservas");
         model.addAttribute("areasComuns", areas);
+        YearMonth mesCalendario = new ReservaCalendarioModelBuilder(clock).mesSelecionado(mes);
+        String modo = "calendario".equalsIgnoreCase(visualizacao) ? "calendario" : "lista";
+        ReservaCalendarioModelBuilder calendario = new ReservaCalendarioModelBuilder(clock);
+        model.addAttribute("diasCalendario", calendario.construirDias(reservas, mesCalendario, false));
+        model.addAttribute("mesSelecionado", mesCalendario.toString());
+        model.addAttribute("mesExibicao", calendario.rotuloMes(mesCalendario));
+        model.addAttribute("mesAnterior", mesCalendario.minusMonths(1));
+        model.addAttribute("mesSeguinte", mesCalendario.plusMonths(1));
+        model.addAttribute("visualizacao", modo);
         model.addAttribute("minhasReservas", reservas.stream().map(reserva -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("area", reserva.getAreaComum().getNome());
