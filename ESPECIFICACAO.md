@@ -12,6 +12,16 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - **O que ocorre com reservas após a desativação de uma área?** Elas permanecem no histórico e seguem o ciclo normal; a área deixa de aceitar novas solicitações.
 - **Qual fuso deve orientar a interface?** A aplicação usa `APP_TIMEZONE`, com padrão `America/Sao_Paulo`; os instantes são persistidos com fuso e comparados pelo `Clock` configurado.
 
+## Trajetória do projeto
+
+Antes de iniciar a implementação, levantei dúvidas sobre disponibilidade, conflitos entre horários, desativação de áreas e referência de data e hora. Registrei as interpretações adotadas para orientar as regras da funcionalidade.
+
+Ao abrir o projeto, encontrei arquivos de teste cujos pacotes declarados não correspondiam às pastas `unit` e `integration`. Corrigi os pacotes e os imports necessários. Depois, identifiquei que o teste de repositório usava H2, embora a aplicação e o desafio utilizem PostgreSQL; ajustei a validação para usar PostgreSQL com Testcontainers. Também corrigi problemas nos testes web, no cadastro de usuário com e-mail duplicado e na exibição de alguns símbolos nas telas.
+
+Implementei áreas comuns e reservas em etapas: cadastro e desativação de áreas; consulta de disponibilidade e solicitação pelo morador; aprovação e negação justificadas pelo administrador, com proteção contra aprovações conflitantes simultâneas; telas de moderação e calendário; cancelamento por morador ou administrador; e atualização do diagrama relacional. Registrei as decisões, interpretações, limitações e validações na especificação. A suíte documentada chegou a 91 testes aprovados e a cobertura unitária da funcionalidade ficou acima do mínimo exigido.
+
+Por fim, ajustei o Docker Compose para que um arquivo `.env` não seja obrigatório e documentei a inicialização com `docker compose up`. Essa última configuração ainda precisa ser confirmada com uma execução no Docker Desktop.
+
 ## Pacotes dos testes
 
 - **Inconsistência encontrada:** 15 arquivos estavam nas pastas de teste `unit` e `integration`, mas declaravam o pacote das classes de produção correspondentes.
@@ -206,9 +216,15 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 
 ## Execução local
 
-- Copie `.env.example` para `.env` e configure os valores locais, incluindo as variáveis `APP_BOOTSTRAP_ADMIN_EMAIL` e `APP_BOOTSTRAP_ADMIN_SENHA` para a conta administrativa inicial. O arquivo `.env` é ignorado pelo Git; não publique credenciais nele.
-- Na raiz do projeto, execute `docker compose up --build` para iniciar PostgreSQL, aplicar as migrações Flyway e subir a aplicação. Acesse `http://localhost:8080/login` e use o e-mail e a senha definidos nas variáveis acima.
+- Na raiz do projeto, execute `docker compose up`. O Compose constrói a imagem da aplicação na primeira inicialização, inicia PostgreSQL, aplica as migrações Flyway e sobe o sistema. Acesse `http://localhost:8080/login`.
+- O arquivo `.env` é opcional: o Compose fornece valores padrão para execução local. Para personalizar banco, fuso ou credenciais iniciais, crie `.env` a partir de `.env.example`; esse arquivo permanece ignorado pelo Git. Altere as credenciais padrão antes de expor a aplicação fora do ambiente local.
 - Para executar os testes no computador, use JDK 21, Maven instalado e Docker disponível para os testes Testcontainers. `mvn verify` executa a suíte completa.
+
+## Inicialização com Docker Compose
+
+- **Problema:** a configuração exigia um `.env` local por meio de `env_file`, então um clone limpo não iniciava diretamente com `docker compose up`.
+- **Decisão:** removi essa dependência obrigatória e defini valores padrão de desenvolvimento nas variáveis do Compose. Um `.env` presente continua sobrescrevendo esses valores.
+- **Efeito:** em clone limpo, `docker compose up` inicia a aplicação sem instalação local de Java ou Maven; o Compose usa o Dockerfile para construir a imagem. As configurações padrão são destinadas somente ao uso local.
 ## Resultado da validação
 
 `mvn verify` concluiu com **91 testes executados, 0 falhas, 0 erros e 0 ignorados**. Em execução separada dos testes unitários, passaram **50 testes**; o JaCoCo mediu **89,33% (318/356 linhas)** nas 16 classes de áreas e reservas configuradas no escopo e aprovou o mínimo de 40%. A execução de migrações aplicou as **21 versões**, incluindo V21, em PostgreSQL 16 pelo Testcontainers. O comando reproduzível para medir somente os testes unitários no PowerShell é:
@@ -218,4 +234,4 @@ $unitTests = Get-ChildItem 'src/test/java/br/com/dunnastecnologia/chamados/unit'
 mvn "-Dtest=$($unitTests -join ',')" verify
 ```
 
-A suíte completa roda com `mvn verify`. As duas execuções precisam de Docker disponível para os testes Testcontainers. A revisão do enunciado e a configuração do Compose não revelaram requisito funcional conhecido de áreas e reservas sem implementação; a configuração Compose passou, mas não foi feita uma nova subida dos containers nesta validação.
+A suíte completa roda com `mvn verify`. As duas execuções precisam de Docker disponível para os testes Testcontainers. A revisão do enunciado e a configuração do Compose não revelaram requisito funcional conhecido de áreas e reservas sem implementação. A inicialização após a retirada da exigência de `.env` ainda precisa ser confirmada em uma máquina com Docker disponível.
