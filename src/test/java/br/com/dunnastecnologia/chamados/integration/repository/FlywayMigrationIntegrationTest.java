@@ -15,7 +15,7 @@ class FlywayMigrationIntegrationTest {
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     @Test
-    void aplicaTodasAsMigracoesEmPostgresVazioIncluindoDecisaoAdministrativa() {
+    void aplicaTodasAsMigracoesEmPostgresVazioIncluindoAuditoriaDoCancelamento() {
         Flyway flyway = Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
@@ -23,7 +23,7 @@ class FlywayMigrationIntegrationTest {
 
         var resultado = flyway.migrate();
 
-        assertEquals(20, resultado.migrationsExecuted);
-        assertEquals("20", flyway.info().current().getVersion().getVersion());
+        assertEquals(21, resultado.migrationsExecuted);
+        assertEquals("21", flyway.info().current().getVersion().getVersion());
     }
 }

@@ -59,7 +59,10 @@ class AreaComumReservaWebControllerIntegrationTest {
     @MockitoBean Clock clock;
 
     @BeforeEach
-    void setTimeZone() { when(clock.getZone()).thenReturn(ZoneId.of("America/Sao_Paulo")); }
+    void setTimeZone() {
+        when(clock.getZone()).thenReturn(ZoneId.of("America/Sao_Paulo"));
+        when(clock.instant()).thenReturn(Instant.parse("2027-05-01T00:00:00Z"));
+    }
 
     @Test
     void administradorListaAreasEExibeTela() throws Exception {
@@ -173,6 +176,32 @@ class AreaComumReservaWebControllerIntegrationTest {
                 .andExpect(flash().attribute("successMessage", "Solicitação negada."));
 
         verify(reservaUseCases).negar(any(), eq(reservaId), eq("Manutenção programada"));
+    }
+
+    @Test
+    void administradorCancelaReservaPelaTela() throws Exception {
+        var reservaId = UUID.fromString("00000000-0000-0000-0000-000000000023");
+
+        mockMvc.perform(post("/admin/reservas/{id}/cancelar", reservaId)
+                        .with(authentication(WebTestAuthenticationFactory.administrador())))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/reservas"))
+                .andExpect(flash().attribute("successMessage", "Reserva cancelada."));
+
+        verify(reservaUseCases).cancelar(any(), eq(reservaId));
+    }
+
+    @Test
+    void moradorCancelaReservaPelaTela() throws Exception {
+        var reservaId = UUID.fromString("00000000-0000-0000-0000-000000000024");
+
+        mockMvc.perform(post("/morador/reservas/{id}/cancelar", reservaId)
+                        .with(authentication(WebTestAuthenticationFactory.morador())))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/morador/reservas"))
+                .andExpect(flash().attribute("successMessage", "Reserva cancelada."));
+
+        verify(reservaUseCases).cancelar(any(), eq(reservaId));
     }
 
     @Test

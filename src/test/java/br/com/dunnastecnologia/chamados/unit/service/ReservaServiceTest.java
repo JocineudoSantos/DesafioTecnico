@@ -8,6 +8,7 @@ import br.com.dunnastecnologia.chamados.domain.model.Reserva;
 import br.com.dunnastecnologia.chamados.domain.model.ReservaStatus;
 import br.com.dunnastecnologia.chamados.infrastructure.exception.BusinessRuleException;
 import br.com.dunnastecnologia.chamados.infrastructure.exception.ResourceNotFoundException;
+import br.com.dunnastecnologia.chamados.infrastructure.exception.UnauthorizedOperationException;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.AreaComumRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.AdministradorRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.MoradorRepository;
@@ -149,6 +150,60 @@ class ReservaServiceTest {
         assertThrows(BusinessRuleException.class, () -> service.aprovar(admin, reserva.getId()));
 
         assertEquals(ReservaStatus.SOLICITADA, reserva.getStatus());
+        verify(reservaRepository, never()).save(any());
+    }
+
+    @Test
+    void moradorCancelaSolicitacaoPropriaERegistraAuditoria() {
+        Reserva reserva = reservaSolicitada();
+        when(validator.isAdministrador(resident)).thenReturn(false);
+        when(validator.isMorador(resident)).thenReturn(true);
+        when(reservaRepository.findByIdForUpdate(reserva.getId())).thenReturn(Optional.of(reserva));
+
+        Reserva cancelada = service.cancelar(resident, reserva.getId());
+
+        assertEquals(ReservaStatus.CANCELADA, cancelada.getStatus());
+        assertEquals(NOW, cancelada.getCanceladaEm());
+        assertSame(morador, cancelada.getCanceladaPor());
+        assertNull(cancelada.getDecididaEm());
+        verify(reservaRepository).save(reserva);
+    }
+
+    @Test
+    void administradorCancelaAprovadaSemApagarAuditoriaDaDecisao() {
+        Reserva reserva = reservaSolicitada();
+        reserva.setStatus(ReservaStatus.APROVADA);
+        reserva.setDecididaEm(NOW.minusSeconds(60));
+        reserva.setDecididaPor(administrador);
+        when(validator.isAdministrador(admin)).thenReturn(true);
+        when(reservaRepository.findByIdForUpdate(reserva.getId())).thenReturn(Optional.of(reserva));
+
+        Reserva cancelada = service.cancelar(admin, reserva.getId());
+
+        assertEquals(ReservaStatus.CANCELADA, cancelada.getStatus());
+        assertEquals(NOW, cancelada.getCanceladaEm());
+        assertSame(administrador, cancelada.getCanceladaPor());
+        assertEquals(NOW.minusSeconds(60), cancelada.getDecididaEm());
+        assertSame(administrador, cancelada.getDecididaPor());
+    }
+
+    @Test
+    void impedeCancelamentoPorOutroMoradorOuDepoisDoInicioOuEmEstadoTerminal() {
+        Reserva propria = reservaSolicitada();
+        AuthenticatedUser outroMorador = new AuthenticatedUser(UUID.randomUUID(), "outro@test", "ROLE_MORADOR");
+        when(validator.isAdministrador(outroMorador)).thenReturn(false);
+        when(validator.isMorador(outroMorador)).thenReturn(true);
+        when(reservaRepository.findByIdForUpdate(propria.getId())).thenReturn(Optional.of(propria));
+        assertThrows(UnauthorizedOperationException.class, () -> service.cancelar(outroMorador, propria.getId()));
+
+        propria.setInicio(NOW);
+        when(validator.isAdministrador(resident)).thenReturn(false);
+        when(validator.isMorador(resident)).thenReturn(true);
+        assertThrows(BusinessRuleException.class, () -> service.cancelar(resident, propria.getId()));
+
+        propria.setInicio(NOW.plusSeconds(3600));
+        propria.setStatus(ReservaStatus.NEGADA);
+        assertThrows(BusinessRuleException.class, () -> service.cancelar(resident, propria.getId()));
         verify(reservaRepository, never()).save(any());
     }
 

@@ -4,6 +4,14 @@
 
 As alterações desta etapa corrigem a organização e a configuração dos testes. Não alteram regras de negócio nem o SQL de produção. Os testes continuam exercitando os comportamentos já descritos em seus casos e as asserções existentes foram preservadas, exceto pelo preenchimento do dado que faltava em um fixture.
 
+## Perguntas antes de iniciar
+
+- **Solicitações pendentes ocupam o horário?** Interpretei que não: apenas reservas `APROVADA` bloqueiam a disponibilidade. O efeito é permitir pedidos simultâneos, deixando a validação definitiva para a aprovação administrativa.
+- **Intervalos adjacentes conflitam?** Interpretei os períodos como semiabertos `[início, fim)`: se uma reserva termina no instante em que outra começa, elas não se sobrepõem.
+- **Quais limites de capacidade, duração, expediente e antecedência se aplicam?** O enunciado não define esses valores; por isso, não criei limites de negócio além de exigir início futuro e fim posterior ao início.
+- **O que ocorre com reservas após a desativação de uma área?** Elas permanecem no histórico e seguem o ciclo normal; a área deixa de aceitar novas solicitações.
+- **Qual fuso deve orientar a interface?** A aplicação usa `APP_TIMEZONE`, com padrão `America/Sao_Paulo`; os instantes são persistidos com fuso e comparados pelo `Clock` configurado.
+
 ## Pacotes dos testes
 
 - **Inconsistência encontrada:** 15 arquivos estavam nas pastas de teste `unit` e `integration`, mas declaravam o pacote das classes de produção correspondentes.
@@ -153,7 +161,7 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 
 - A autorização e a transição de estado são verificadas no serviço, além de depender da identidade autenticada; a reserva é bloqueada durante a operação para serializar cancelamentos concorrentes com decisões administrativas.
 - A migração V21 adiciona metadados próprios de cancelamento. O histórico anterior de decisões administrativas permanece nos campos da decisão, separado da auditoria do cancelamento.
-- **Validação:** `mvn -DskipTests package` compilou a aplicação e os fontes de teste com sucesso após a implementação do backend. A suíte de testes e a execução da migração V21 ainda não foram realizadas; ficam para a validação desta funcionalidade.
+- **Validação final:** os testes unitários e a suíte completa passaram; a V21 foi aplicada em PostgreSQL 16. Os números e o escopo medido estão registrados em “Resultado da validação”.
 
 ## Áreas comuns e reservas — sexta etapa: cancelamento nas telas
 
@@ -168,18 +176,46 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 
 - O botão só aparece para estados e períodos elegíveis; o serviço volta a verificar as regras e registra o ator autenticado.
 - **Fora desta parte:** controles de cancelamento diretamente na agenda mensal; a ação está disponível nas listas/históricos.
-- **Validação:** `mvn -DskipTests package` compilou a aplicação e os fontes de teste após as etapas de backend e tela. A suíte de testes e a execução da migração V21 ainda estão pendentes.
+- **Validação final:** as rotas web de cancelamento e as regras correspondentes passaram nos testes; ver “Resultado da validação”.
+
+## Áreas comuns e reservas — sétima etapa: documentação do esquema
+
+### Registro atualizado
+
+- O diagrama relacional agora representa os campos de decisão (`decidida_em`, `decidida_por_usuario_id`, `motivo_negacao`) e de cancelamento (`cancelada_em`, `cancelada_por_usuario_id`) da tabela `reservas`.
+- Os campos de usuário responsável são chaves estrangeiras para `usuarios`. A V21 permite dados de auditoria de cancelamento ausentes em registros cancelados antigos e exige que data e responsável sejam preenchidos juntos quando a auditoria existir.
+- A tabela `reservas` também relaciona cada reserva à área comum e ao morador, guarda o intervalo, o estado e a data de criação. Os estados persistidos incluem `SOLICITADA`, `APROVADA`, `NEGADA` e `CANCELADA`.
+
+### Limites
+
+- O diagrama documenta a estrutura persistida; as permissões e regras para transições de estado continuam descritas nas etapas anteriores e implementadas no serviço.
+- **Validação:** conferi a correspondência entre os campos do diagrama, as entidades e as migrações V19, V20 e V21. A suíte completa aplicou as 21 migrações em PostgreSQL 16 sem erro.
 
 ## Uso de inteligência artificial
 
 - **Ferramentas usadas:** OpenAI Codex e um agente delegado, para inspecionar e implementar alterações em código, testes e documentação, investigar falhas e executar comandos de compilação e teste.
 - **Sugestões aceitas da IA:** usar Testcontainers com PostgreSQL em vez de H2; simular `JwtService` sem substituir o filtro; e modelar áreas/reservas em nova migração Flyway com validação de regras no serviço.
 - **Sugestões modificadas ou rejeitadas:** a primeira tentativa de simular o próprio filtro JWT foi revertida quando os testes mostraram que as requisições eram interrompidas antes dos controllers. A possibilidade de adaptar a consulta para H2 foi rejeitada porque o desafio e o projeto usam PostgreSQL e o SQL é específico desse banco.
-- **Validação do conteúdo e do código:** conferi as declarações de pacote e imports, revisei o SQL e a versão do PostgreSQL no Compose, compilei e executei a suíte completa com JDK 21 e Docker Desktop e subi a aplicação completa pelo Compose. Após a segunda etapa de áreas e reservas, `mvn verify` executou 78 testes sem falhas, erros ou ignorados; JaCoCo mediu 79,9% de cobertura de linhas nas classes incluídas para a funcionalidade e aprovou o mínimo de 40%. Os testes de concorrência e das 20 migrações usaram PostgreSQL 16 por Testcontainers.
+- **Validação do conteúdo e do código:** conferi o enunciado, as decisões documentadas, as migrações e o modelo relacional. A validação final executou 50 testes unitários e a suíte completa de 91 testes com JDK 21. Os testes de migração e repositório usaram PostgreSQL 16 por Testcontainers; o Flyway aplicou as 21 migrações em banco vazio. JaCoCo mediu 89,33% de cobertura de linhas nas 16 classes de áreas e reservas incluídas no escopo unitário (318 de 356 linhas) e aprovou o mínimo de 40%.
 - **Decisões não delegadas à IA:** o banco alvo PostgreSQL, a preservação do SQL e das regras de negócio, o escopo desta correção e a decisão de não tratar uma suíte parcial como aprovada foram definidos a partir do desafio e das orientações do usuário. A IA auxiliou na implementação e verificação, não definiu critérios de negócio ou aceite.
+- **Interações relevantes (resumidas e sem dados sensíveis):**
+  1. Foi relatado que o cadastro com e-mail já existente terminava em uma página 404. A IA investigou o tratamento web da exceção, corrigiu o retorno à listagem com mensagem e adicionou um teste de regressão.
+  2. Foi esclarecido que o projeto deve usar PostgreSQL, não H2. A IA adaptou a validação com Testcontainers; os testes de consulta e migração foram executados em PostgreSQL 16.
+  3. Foi relatada a exibição corrompida do separador em comentários e anexos. A IA substituiu os caracteres literais pela entidade HTML `&bull;` nas telas afetadas; a alteração foi conferida no build.
+  4. Foi solicitado validar a etapa final. A primeira execução revelou fixtures sem relógio fixo e uma expectativa desatualizada para 20 migrações; a IA corrigiu os testes, adicionou casos de cancelamento e repetiu a suíte completa.
 
+## Execução local
+
+- Copie `.env.example` para `.env` e configure os valores locais, incluindo as variáveis `APP_BOOTSTRAP_ADMIN_EMAIL` e `APP_BOOTSTRAP_ADMIN_SENHA` para a conta administrativa inicial. O arquivo `.env` é ignorado pelo Git; não publique credenciais nele.
+- Na raiz do projeto, execute `docker compose up --build` para iniciar PostgreSQL, aplicar as migrações Flyway e subir a aplicação. Acesse `http://localhost:8080/login` e use o e-mail e a senha definidos nas variáveis acima.
+- Para executar os testes no computador, use JDK 21, Maven instalado e Docker disponível para os testes Testcontainers. `mvn verify` executa a suíte completa.
 ## Resultado da validação
 
-A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após a quarta etapa, `mvn verify` terminou com **86 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório e das migrações usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo das classes de áreas e reservas aprovou o mínimo de 40% de cobertura de linhas.
+`mvn verify` concluiu com **91 testes executados, 0 falhas, 0 erros e 0 ignorados**. Em execução separada dos testes unitários, passaram **50 testes**; o JaCoCo mediu **89,33% (318/356 linhas)** nas 16 classes de áreas e reservas configuradas no escopo e aprovou o mínimo de 40%. A execução de migrações aplicou as **21 versões**, incluindo V21, em PostgreSQL 16 pelo Testcontainers. O comando reproduzível para medir somente os testes unitários no PowerShell é:
 
-A execução de `docker compose up --build -d` iniciou a aplicação e o PostgreSQL em containers. O Flyway validou 19 migrações e aplicou a V19; a aplicação iniciou sem erros. A rota `/login` respondeu HTTP 200; `/admin`, `/colaborador` e `/morador` redirecionaram para `/login` sem sessão. Para evitar publicar segredos locais, `.env` foi criado a partir de `.env.example` e adicionado ao `.gitignore`.
+```powershell
+$unitTests = Get-ChildItem 'src/test/java/br/com/dunnastecnologia/chamados/unit' -Recurse -Filter '*Test.java' | ForEach-Object { $_.BaseName }
+mvn "-Dtest=$($unitTests -join ',')" verify
+```
+
+A suíte completa roda com `mvn verify`. As duas execuções precisam de Docker disponível para os testes Testcontainers. A revisão do enunciado e a configuração do Compose não revelaram requisito funcional conhecido de áreas e reservas sem implementação; a configuração Compose passou, mas não foi feita uma nova subida dos containers nesta validação.
