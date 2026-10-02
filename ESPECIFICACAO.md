@@ -2,7 +2,7 @@
 
 ## Escopo e comportamento preservado
 
-As alterações desta etapa corrigem a organização e a configuração dos testes, além do uso do Maven Wrapper no Windows. Não alteram regras de negócio nem o SQL de produção. Os testes continuam exercitando os comportamentos já descritos em seus casos e as asserções existentes foram preservadas, exceto pelo preenchimento do dado que faltava em um fixture.
+As alterações desta etapa corrigem a organização e a configuração dos testes. Não alteram regras de negócio nem o SQL de produção. Os testes continuam exercitando os comportamentos já descritos em seus casos e as asserções existentes foram preservadas, exceto pelo preenchimento do dado que faltava em um fixture.
 
 ## Pacotes dos testes
 
@@ -31,13 +31,6 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - **Fixture corrigido:** um teste de morador criava `TipoChamado` sem `prazoHoras`; o mapeamento da tela inclui esse valor em um mapa que não aceita nulos. Preenchi o fixture com 24 horas. Isso corrige os dados do cenário de teste, sem alterar o comportamento de produção.
 - **Fora do escopo:** mudar autenticação, autorização, regras de perfil ou fluxos de negócio da aplicação.
 - **Com mais tempo:** criaria uma suíte específica para validar acesso permitido e negado por perfil usando a configuração de segurança real.
-
-## Maven Wrapper
-
-- **Problema encontrado:** faltava `.mvn/wrapper/maven-wrapper.properties`, necessário para o Maven Wrapper, e o script `mvnw.cmd` formava incorretamente o caminho do arquivo no Windows.
-- **Decisão e justificativa:** adicionei a configuração do Maven 3.9.16 e corrigi a montagem do caminho no script Windows. A versão escolhida foi executada com o JDK 21 do projeto.
-- **Limitação:** na primeira execução em outra máquina, o Wrapper pode precisar baixar o Maven da internet. Se o Maven já estiver instalado, `mvn test` continua sendo uma alternativa.
-- **Validação:** `mvnw.cmd -v` iniciou corretamente com Maven 3.9.16 e JDK 21.
 
 ## Cadastro de usuário com e-mail duplicado
 
@@ -116,16 +109,31 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - Foram incluídos testes unitários para aprovação, conflito, negativa com motivo e transições inválidas, além de um teste de integração em PostgreSQL para aprovações conflitantes simultâneas.
 - `mvn verify`: 78 testes executados, sem falhas, erros ou testes ignorados. O PostgreSQL 16 confirmou que, em duas aprovações simultâneas conflitantes, somente uma é aprovada. Outro teste aplicou as 20 migrações Flyway em um PostgreSQL vazio. A verificação JaCoCo da funcionalidade registrou 79,9% de cobertura de linhas e passou o mínimo exigido de 40%.
 
+## Áreas comuns e reservas — terceira etapa: moderação administrativa na web
+
+### Comportamento implementado
+
+- A tela `/admin/reservas` lista as reservas, identifica solicitações pendentes e mostra área, período, morador e situação.
+- Para solicitações `SOLICITADA`, o administrador pode aprovar ou enviar uma justificativa para negar. Para os demais estados, os formulários de decisão não são exibidos.
+- A tela também apresenta a justificativa e os dados do responsável e horário da decisão quando disponíveis.
+- As rotas web ficam restritas ao perfil `ADMINISTRADOR`; as regras de conflito, estado e justificativa permanecem no serviço da etapa anterior.
+
+### Decisões técnicas e limites
+
+- A consulta é exibida em tabela nesta etapa. A agenda/calendário para administrador e morador permanece para a próxima etapa, conforme o RF-05 do desafio.
+- O motivo é escapado pelo JSP ao ser exibido e o envio usa proteção CSRF do projeto.
+- **Validação:** os 11 testes web da funcionalidade passaram, incluindo a restrição por perfil, os dados da fila, o envio das decisões e a resposta a uma justificativa vazia. `mvn verify` executou 84 testes, sem falhas, erros ou ignorados. JaCoCo registrou 83,1% de cobertura de linhas nas classes incluídas para áreas e reservas, acima dos 40% exigidos.
+
 ## Uso de inteligência artificial
 
 - **Ferramentas usadas:** OpenAI Codex e um agente delegado, para inspecionar e implementar alterações em código, testes e documentação, investigar falhas e executar comandos de compilação e teste.
-- **Sugestões aceitas da IA:** usar Testcontainers com PostgreSQL em vez de H2; simular `JwtService` sem substituir o filtro; restaurar a configuração do Maven Wrapper; e modelar áreas/reservas em nova migração Flyway com validação de regras no serviço.
+- **Sugestões aceitas da IA:** usar Testcontainers com PostgreSQL em vez de H2; simular `JwtService` sem substituir o filtro; e modelar áreas/reservas em nova migração Flyway com validação de regras no serviço.
 - **Sugestões modificadas ou rejeitadas:** a primeira tentativa de simular o próprio filtro JWT foi revertida quando os testes mostraram que as requisições eram interrompidas antes dos controllers. A possibilidade de adaptar a consulta para H2 foi rejeitada porque o desafio e o projeto usam PostgreSQL e o SQL é específico desse banco.
-- **Validação do conteúdo e do código:** conferi as declarações de pacote e imports, revisei o SQL e a versão do PostgreSQL no Compose, compilei e executei a suíte completa com JDK 21 e Docker Desktop. Também iniciei o Maven Wrapper para confirmar sua configuração e subi a aplicação completa pelo Compose. Após a segunda etapa de áreas e reservas, `mvn verify` executou 78 testes sem falhas, erros ou ignorados; JaCoCo mediu 79,9% de cobertura de linhas nas classes incluídas para a funcionalidade e aprovou o mínimo de 40%. Os testes de concorrência e das 20 migrações usaram PostgreSQL 16 por Testcontainers.
+- **Validação do conteúdo e do código:** conferi as declarações de pacote e imports, revisei o SQL e a versão do PostgreSQL no Compose, compilei e executei a suíte completa com JDK 21 e Docker Desktop e subi a aplicação completa pelo Compose. Após a segunda etapa de áreas e reservas, `mvn verify` executou 78 testes sem falhas, erros ou ignorados; JaCoCo mediu 79,9% de cobertura de linhas nas classes incluídas para a funcionalidade e aprovou o mínimo de 40%. Os testes de concorrência e das 20 migrações usaram PostgreSQL 16 por Testcontainers.
 - **Decisões não delegadas à IA:** o banco alvo PostgreSQL, a preservação do SQL e das regras de negócio, o escopo desta correção e a decisão de não tratar uma suíte parcial como aprovada foram definidos a partir do desafio e das orientações do usuário. A IA auxiliou na implementação e verificação, não definiu critérios de negócio ou aceite.
 
 ## Resultado da validação
 
-A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após a segunda etapa, `mvn verify` terminou com **78 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório e das migrações usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo das classes da funcionalidade registrou **79,9%** de cobertura de linhas, acima do mínimo de 40%.
+A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após a terceira etapa, `mvn verify` terminou com **84 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório e das migrações usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo das classes da funcionalidade registrou **83,1%** de cobertura de linhas, acima do mínimo de 40%.
 
 A execução de `docker compose up --build -d` iniciou a aplicação e o PostgreSQL em containers. O Flyway validou 19 migrações e aplicou a V19; a aplicação iniciou sem erros. A rota `/login` respondeu HTTP 200; `/admin`, `/colaborador` e `/morador` redirecionaram para `/login` sem sessão. Para evitar publicar segredos locais, `.env` foi criado a partir de `.env.example` e adicionado ao `.gitignore`.

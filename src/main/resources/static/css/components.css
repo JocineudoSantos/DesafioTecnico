@@ -307,6 +307,16 @@
     margin-top: 16px;
 }
 
+.reservation-denial-form {
+    min-width: 180px;
+    max-width: 240px;
+}
+
+.reservation-denial-form .field textarea {
+    min-height: 64px;
+    padding: 10px 12px;
+}
+
 .divider {
     height: 1px;
     background: var(--line);

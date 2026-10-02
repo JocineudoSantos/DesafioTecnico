@@ -3,10 +3,14 @@ package br.com.dunnastecnologia.chamados.integration.controller.web;
 import br.com.dunnastecnologia.chamados.application.UserCase.AreaComumUseCases;
 import br.com.dunnastecnologia.chamados.application.UserCase.ReservaUseCases;
 import br.com.dunnastecnologia.chamados.domain.model.AreaComum;
+import br.com.dunnastecnologia.chamados.domain.model.Morador;
 import br.com.dunnastecnologia.chamados.domain.model.Reserva;
+import br.com.dunnastecnologia.chamados.domain.model.ReservaStatus;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.AdminAreaComumWebController;
+import br.com.dunnastecnologia.chamados.infrastructure.controller.web.AdminReservaWebController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.MoradorReservaWebController;
 import br.com.dunnastecnologia.chamados.infrastructure.controller.web.WebControllerSupport;
+import br.com.dunnastecnologia.chamados.infrastructure.exception.BusinessRuleException;
 import br.com.dunnastecnologia.chamados.infrastructure.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,8 +25,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -32,7 +38,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest({AdminAreaComumWebController.class, MoradorReservaWebController.class})
+@WebMvcTest({AdminAreaComumWebController.class, AdminReservaWebController.class, MoradorReservaWebController.class})
 @AutoConfigureMockMvc
 @Import({WebControllerSupport.class, WebTestSecurityConfig.class})
 class AreaComumReservaWebControllerIntegrationTest {
@@ -84,6 +90,101 @@ class AreaComumReservaWebControllerIntegrationTest {
         mockMvc.perform(get("/morador/reservas").with(authentication(WebTestAuthenticationFactory.administrador())))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(reservaUseCases, areaComumUseCases);
+    }
+
+    @Test
+    void administradorAbreFilaDeReservas() throws Exception {
+        when(reservaUseCases.listarParaAdministracao(any())).thenReturn(List.of());
+
+        mockMvc.perform(get("/admin/reservas")
+                        .with(authentication(WebTestAuthenticationFactory.administrador())))
+                .andExpect(status().isOk())
+                .andExpect(view().name("admin/reservas"))
+                .andExpect(model().attributeExists("reservas", "quantidadePendentes"))
+                .andExpect(model().attribute("pageTitle", "Solicita&ccedil;&otilde;es de reserva"));
+    }
+
+    @Test
+    void filaAdministrativaApresentaOsDadosDaReserva() throws Exception {
+        AreaComum area = new AreaComum();
+        area.setNome("Salão");
+        Morador morador = new Morador();
+        morador.setNome("Ana Moradora");
+        morador.setEmail("ana@example.test");
+        Reserva reserva = new Reserva();
+        reserva.setId(UUID.randomUUID());
+        reserva.setAreaComum(area);
+        reserva.setMorador(morador);
+        reserva.setInicio(Instant.parse("2027-05-10T13:00:00Z"));
+        reserva.setFim(Instant.parse("2027-05-10T14:00:00Z"));
+        reserva.setCriadaEm(Instant.parse("2027-05-01T10:00:00Z"));
+        reserva.setStatus(ReservaStatus.SOLICITADA);
+        when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
+        when(reservaUseCases.listarParaAdministracao(any())).thenReturn(List.of(reserva));
+
+        mockMvc.perform(get("/admin/reservas")
+                        .with(authentication(WebTestAuthenticationFactory.administrador())))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("quantidadePendentes", 1L))
+                .andExpect(model().attribute("reservas", org.hamcrest.Matchers.hasItem(
+                        org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.hasEntry("area", "Salão"),
+                                org.hamcrest.Matchers.hasEntry("morador", "Ana Moradora"),
+                                org.hamcrest.Matchers.hasEntry("status", "SOLICITADA")
+                        ))));
+    }
+
+    @Test
+    void moradorNaoAcessaFilaAdministrativaDeReservas() throws Exception {
+        mockMvc.perform(get("/admin/reservas")
+                        .with(authentication(WebTestAuthenticationFactory.morador())))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(reservaUseCases);
+    }
+
+    @Test
+    void administradorAprovaReservaPelaTela() throws Exception {
+        var administrador = WebTestAuthenticationFactory.administrador();
+        var reservaId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000020");
+
+        mockMvc.perform(post("/admin/reservas/{id}/aprovar", reservaId)
+                        .with(authentication(administrador)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/reservas"))
+                .andExpect(flash().attribute("successMessage", "Reserva aprovada."));
+
+        verify(reservaUseCases).aprovar(any(), eq(reservaId));
+    }
+
+    @Test
+    void administradorNegaReservaComMotivoPelaTela() throws Exception {
+        var administrador = WebTestAuthenticationFactory.administrador();
+        var reservaId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000021");
+
+        mockMvc.perform(post("/admin/reservas/{id}/negar", reservaId)
+                        .with(authentication(administrador))
+                        .param("motivo", "Manutenção programada"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/reservas"))
+                .andExpect(flash().attribute("successMessage", "Solicitação negada."));
+
+        verify(reservaUseCases).negar(any(), eq(reservaId), eq("Manutenção programada"));
+    }
+
+    @Test
+    void motivoVazioExibeErroEVoltaParaFilaAdministrativa() throws Exception {
+        var administrador = WebTestAuthenticationFactory.administrador();
+        var reservaId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000022");
+        doThrow(new BusinessRuleException("Informe um motivo para negar a solicitação."))
+                .when(reservaUseCases).negar(any(), eq(reservaId), eq("   "));
+
+        mockMvc.perform(post("/admin/reservas/{id}/negar", reservaId)
+                        .with(authentication(administrador))
+                        .header("Referer", "/admin/reservas")
+                        .param("motivo", "   "))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/reservas"))
+                .andExpect(flash().attribute("errorMessage", "Informe um motivo para negar a solicitação."));
     }
 
     @Test
