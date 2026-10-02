@@ -509,3 +509,43 @@
         font-size: 0.63rem;
     }
 }
+.reservation-cell-actions {
+    display: table-cell;
+}
+
+.reservation-actions {
+    display: grid;
+    gap: 10px;
+    min-width: 210px;
+}
+
+.reservation-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reservation-action-buttons > * {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.reservation-approve-form {
+    margin: 0;
+}
+
+.reservation-action-buttons .btn {
+    width: 100%;
+    padding-inline: 12px;
+}
+
+.reservation-denial-form {
+    width: 100%;
+    min-width: 0;
+    max-width: 320px;
+    margin-top: 0;
+}
+
+.reservation-denial-form[hidden] {
+    display: none !important;
+}

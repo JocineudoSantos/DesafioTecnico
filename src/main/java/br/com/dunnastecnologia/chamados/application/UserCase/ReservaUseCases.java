@@ -56,4 +56,7 @@ public interface ReservaUseCases {
 
     /** Nega uma solicitação e registra a justificativa informada. */
     Reserva negar(AuthenticatedUser administrador, UUID reservaId, String motivo);
+
+    /** Cancela reserva solicitada/aprovada antes do início, por seu proprietário ou administrador. */
+    Reserva cancelar(AuthenticatedUser ator, UUID reservaId);
 }

@@ -24,6 +24,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, UUID> {
             join fetch r.areaComum
             join fetch r.morador
             left join fetch r.decididaPor
+            left join fetch r.canceladaPor
             order by r.inicio, r.criadaEm
             """)
     List<Reserva> listarTodasParaAdministracao();
@@ -47,6 +48,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, UUID> {
             select r from Reserva r
             join fetch r.areaComum
             left join fetch r.decididaPor
+            left join fetch r.canceladaPor
             where r.morador.id = :moradorId
             order by r.inicio desc
             """)

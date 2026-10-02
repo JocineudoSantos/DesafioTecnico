@@ -12,6 +12,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -76,10 +77,15 @@ public class MoradorReservaWebController {
         model.addAttribute("minhasReservas", reservas.stream().map(reserva -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("area", reserva.getAreaComum().getNome());
+            item.put("id", reserva.getId());
             item.put("inicio", DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(clock.getZone()).format(reserva.getInicio()));
             item.put("fim", DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(clock.getZone()).format(reserva.getFim()));
             item.put("criadaEm", DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(clock.getZone()).format(reserva.getCriadaEm()));
             item.put("status", reserva.getStatus().name());
+            item.put("canceladaEm", reserva.getCanceladaEm() == null ? null : DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(clock.getZone()).format(reserva.getCanceladaEm()));
+            item.put("canceladaPor", reserva.getCanceladaPor() == null ? null : reserva.getCanceladaPor().getNome());
+            item.put("cancelavel", reserva.getInicio().isAfter(clock.instant())
+                    && (reserva.getStatus() == ReservaStatus.SOLICITADA || reserva.getStatus() == ReservaStatus.APROVADA));
             return item;
         }).toList());
         model.addAttribute("areaSelecionadaId", areaId);
@@ -107,6 +113,14 @@ public class MoradorReservaWebController {
                 form.getFim().atZone(clock.getZone()).toInstant()
         );
         redirect.addFlashAttribute("successMessage", "Solicitação de reserva registrada como SOLICITADA.");
+        return "redirect:/morador/reservas";
+    }
+
+    @PostMapping("/{reservaId}/cancelar")
+    public String cancelar(Authentication authentication, @PathVariable UUID reservaId,
+                           RedirectAttributes redirect) {
+        reservaUseCases.cancelar(support.authenticatedUser(authentication), reservaId);
+        redirect.addFlashAttribute("successMessage", "Reserva cancelada.");
         return "redirect:/morador/reservas";
     }
 }

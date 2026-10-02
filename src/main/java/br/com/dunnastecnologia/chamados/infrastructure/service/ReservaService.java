@@ -9,6 +9,7 @@ import br.com.dunnastecnologia.chamados.domain.model.ReservaStatus;
 import br.com.dunnastecnologia.chamados.domain.model.Usuario;
 import br.com.dunnastecnologia.chamados.infrastructure.exception.BusinessRuleException;
 import br.com.dunnastecnologia.chamados.infrastructure.exception.ResourceNotFoundException;
+import br.com.dunnastecnologia.chamados.infrastructure.exception.UnauthorizedOperationException;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.AdministradorRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.AreaComumRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.MoradorRepository;
@@ -21,6 +22,7 @@ import org.springframework.util.StringUtils;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -139,6 +141,51 @@ public class ReservaService implements ReservaUseCases {
         return reservaRepository.save(reserva);
     }
 
+    @Override
+    @Transactional
+    public Reserva cancelar(AuthenticatedUser ator, UUID reservaId) {
+        boolean administrador = userValidator.isAdministrador(ator);
+        boolean morador = userValidator.isMorador(ator);
+        if (!administrador && !morador) {
+            throw new UnauthorizedOperationException("Somente o morador proprietário ou um administrador pode cancelar a reserva.");
+        }
+        if (administrador) {
+            userValidator.assertAdministrador(ator);
+        } else {
+            userValidator.assertMorador(ator);
+        }
+
+        Reserva reserva = obterReservaBloqueada(reservaId);
+        if (!administrador && !Objects.equals(reserva.getMorador().getId(), ator.id())) {
+            throw new UnauthorizedOperationException("O morador só pode cancelar as próprias reservas.");
+        }
+        if (reserva.getStatus() != ReservaStatus.SOLICITADA
+                && reserva.getStatus() != ReservaStatus.APROVADA) {
+            throw new BusinessRuleException("Somente reservas solicitadas ou aprovadas podem ser canceladas.");
+        }
+        Instant agora = clock.instant();
+        if (!reserva.getInicio().isAfter(agora)) {
+            throw new BusinessRuleException("Não é possível cancelar uma reserva cujo horário de início já chegou.");
+        }
+
+        Usuario cancelador = administrador
+                ? administradorRepository.findByIdAndAtivoTrue(ator.id())
+                    .orElseThrow(() -> new ResourceNotFoundException("Administrador não encontrado"))
+                : moradorRepository.findByIdAndAtivoTrue(ator.id())
+                    .orElseThrow(() -> new ResourceNotFoundException("Morador não encontrado"));
+        reserva.setStatus(ReservaStatus.CANCELADA);
+        reserva.setCanceladaEm(agora);
+        reserva.setCanceladaPor(cancelador);
+        return reservaRepository.save(reserva);
+    }
+
+    private Reserva obterReservaBloqueada(UUID reservaId) {
+        if (reservaId == null) {
+            throw new BusinessRuleException("Selecione uma reserva.");
+        }
+        return reservaRepository.findByIdForUpdate(reservaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reserva não encontrada"));
+    }
     private Reserva obterSolicitacaoBloqueada(UUID reservaId) {
         if (reservaId == null) {
             throw new BusinessRuleException("Selecione uma solicitação.");

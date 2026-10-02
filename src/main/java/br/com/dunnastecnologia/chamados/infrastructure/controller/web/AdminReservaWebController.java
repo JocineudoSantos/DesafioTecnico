@@ -2,6 +2,7 @@ package br.com.dunnastecnologia.chamados.infrastructure.controller.web;
 
 import br.com.dunnastecnologia.chamados.application.UserCase.ReservaUseCases;
 import br.com.dunnastecnologia.chamados.domain.model.Reserva;
+import br.com.dunnastecnologia.chamados.domain.model.ReservaStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -85,6 +86,13 @@ public class AdminReservaWebController {
         return "redirect:/admin/reservas";
     }
 
+    @PostMapping("/{reservaId}/cancelar")
+    public String cancelar(Authentication authentication, @PathVariable UUID reservaId, RedirectAttributes redirect) {
+        reservaUseCases.cancelar(support.authenticatedUser(authentication), reservaId);
+        redirect.addFlashAttribute("successMessage", "Reserva cancelada.");
+        return "redirect:/admin/reservas";
+    }
+
     private Map<String, Object> mapearReserva(Reserva reserva) {
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("id", reserva.getId());
@@ -98,6 +106,10 @@ public class AdminReservaWebController {
         item.put("motivoNegacao", reserva.getMotivoNegacao());
         item.put("decididaEm", formatar(reserva.getDecididaEm()));
         item.put("decididaPor", reserva.getDecididaPor() == null ? null : reserva.getDecididaPor().getNome());
+        item.put("canceladaEm", formatar(reserva.getCanceladaEm()));
+        item.put("canceladaPor", reserva.getCanceladaPor() == null ? null : reserva.getCanceladaPor().getNome());
+        item.put("cancelavel", reserva.getInicio().isAfter(clock.instant())
+                && (reserva.getStatus() == ReservaStatus.SOLICITADA || reserva.getStatus() == ReservaStatus.APROVADA));
         return item;
     }
 

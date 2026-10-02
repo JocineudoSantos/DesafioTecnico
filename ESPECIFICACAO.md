@@ -115,6 +115,7 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 
 - A tela `/admin/reservas` lista as reservas, identifica solicitações pendentes e mostra área, período, morador e situação.
 - Para solicitações `SOLICITADA`, o administrador pode aprovar ou enviar uma justificativa para negar. Para os demais estados, os formulários de decisão não são exibidos.
+- Na lista, os botões **Aprovar** e **Negar** ficam lado a lado; o campo de justificativa aparece somente ao iniciar a negativa e continua obrigatório.
 - A tela também apresenta a justificativa e os dados do responsável e horário da decisão quando disponíveis.
 - As rotas web ficam restritas ao perfil `ADMINISTRADOR`; as regras de conflito, estado e justificativa permanecem no serviço da etapa anterior.
 
@@ -138,6 +139,36 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - Solicitações negadas permanecem no histórico/lista, mas não são exibidas na agenda, pois não representam períodos reservados. Solicitações pendentes são identificadas e não bloqueiam a disponibilidade, conforme as regras definidas na primeira etapa.
 - A grade reserva seis semanas e considera eventos que cruzam os limites do mês; um evento aparece em cada dia cujo intervalo se sobrepõe à reserva.
 - **Validação:** `mvn verify` concluiu com 86 testes, sem falhas, erros ou ignorados. Os novos testes web verificam os eventos do mês, a exclusão de solicitações negadas da agenda e o escopo dos dados do morador. O JaCoCo aprovou o limite mínimo de 40% para as classes incluídas de áreas e reservas. Os testes de repositório e migrações usaram PostgreSQL 16 pelo Testcontainers.
+
+## Áreas comuns e reservas — quinta etapa: regras de cancelamento no backend
+
+### Comportamento implementado
+
+- O morador proprietário ou um administrador pode cancelar reservas `SOLICITADA` ou `APROVADA` somente antes do horário inicial.
+- A ação muda o estado para `CANCELADA`, preserva os dados da aprovação anterior e registra quando e por quem ocorreu o cancelamento.
+- Reservas canceladas deixam de bloquear a disponibilidade porque as consultas de conflito consideram somente o estado `APROVADA`.
+- Colaboradores, outros moradores, estados terminais e reservas cujo início chegou não podem ser cancelados por este fluxo.
+
+### Decisões e limites
+
+- A autorização e a transição de estado são verificadas no serviço, além de depender da identidade autenticada; a reserva é bloqueada durante a operação para serializar cancelamentos concorrentes com decisões administrativas.
+- A migração V21 adiciona metadados próprios de cancelamento. O histórico anterior de decisões administrativas permanece nos campos da decisão, separado da auditoria do cancelamento.
+- **Validação:** `mvn -DskipTests package` compilou a aplicação e os fontes de teste com sucesso após a implementação do backend. A suíte de testes e a execução da migração V21 ainda não foram realizadas; ficam para a validação desta funcionalidade.
+
+## Áreas comuns e reservas — sexta etapa: cancelamento nas telas
+
+### Comportamento implementado
+
+- Administradores podem cancelar reservas solicitadas ou aprovadas antes do início, pela lista administrativa.
+- Moradores podem cancelar somente as próprias reservas solicitadas ou aprovadas antes do início, no histórico pessoal.
+- As telas pedem confirmação antes do envio e exibem no histórico o horário e o responsável pelo cancelamento.
+- A validação definitiva de permissão, situação e horário continua no serviço, para impedir ações inválidas mesmo se a requisição for enviada manualmente.
+
+### Decisões e limites
+
+- O botão só aparece para estados e períodos elegíveis; o serviço volta a verificar as regras e registra o ator autenticado.
+- **Fora desta parte:** controles de cancelamento diretamente na agenda mensal; a ação está disponível nas listas/históricos.
+- **Validação:** `mvn -DskipTests package` compilou a aplicação e os fontes de teste após as etapas de backend e tela. A suíte de testes e a execução da migração V21 ainda estão pendentes.
 
 ## Uso de inteligência artificial
 

@@ -56,4 +56,11 @@ public class Reserva {
 
     @Column(name = "motivo_negacao", columnDefinition = "text")
     private String motivoNegacao;
+
+    @Column(name = "cancelada_em")
+    private Instant canceladaEm;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cancelada_por_usuario_id")
+    private Usuario canceladaPor;
 }

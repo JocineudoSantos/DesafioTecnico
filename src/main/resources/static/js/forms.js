@@ -63,10 +63,33 @@
         });
     }
 
+    function initReservationDenialForms() {
+        window.AppDom.bySelector("[data-reservation-denial-toggle]").forEach(function (button) {
+            var formId = button.getAttribute("aria-controls");
+            var form = formId ? document.getElementById(formId) : null;
+            if (!form) {
+                return;
+            }
+
+            button.addEventListener("click", function () {
+                var isOpen = button.getAttribute("aria-expanded") === "true";
+                form.hidden = isOpen;
+                button.setAttribute("aria-expanded", String(!isOpen));
+                button.textContent = isOpen ? "Negar" : "Fechar";
+                if (!isOpen) {
+                    var reason = form.querySelector("textarea[name='motivo']");
+                    if (reason) {
+                        reason.focus();
+                    }
+                }
+            });
+        });
+    }
     window.AppDom.onReady(function () {
         initConfirmations();
         initPasswordToggle();
         initCharacterCount();
         initAutoSubmit();
+        initReservationDenialForms();
     });
 })();

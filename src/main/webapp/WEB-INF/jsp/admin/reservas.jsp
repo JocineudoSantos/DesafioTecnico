@@ -67,14 +67,29 @@
                                             <tr>
                                                 <td><strong><c:out value="${reserva.area}"/></strong><br><span><c:out value="${reserva.inicio}"/> a <c:out value="${reserva.fim}"/></span><br><span>Solicitada em: <c:out value="${reserva.criadaEm}"/></span></td>
                                                 <td><strong><c:out value="${reserva.morador}"/></strong><br><span><c:out value="${reserva.email}"/></span></td>
-                                                <td><strong><c:out value="${reserva.status}"/></strong><c:if test="${reserva.status eq 'NEGADA' and not empty reserva.motivoNegacao}"><br><span><c:out value="${reserva.motivoNegacao}"/></span></c:if></td>
-                                                <td class="cell-actions">
+                                                <td><strong><c:out value="${reserva.status}"/></strong><c:if test="${reserva.status eq 'NEGADA' and not empty reserva.motivoNegacao}"><br><span><c:out value="${reserva.motivoNegacao}"/></span></c:if><c:if test="${reserva.status eq 'CANCELADA'}"><br><span>Cancelada em: <c:out value="${reserva.canceladaEm}"/></span><br><span>Cancelada por: <c:out value="${reserva.canceladaPor}"/></span></c:if></td>
+                                                                                                <td class="cell-actions reservation-cell-actions">
                                                     <c:choose>
                                                         <c:when test="${reserva.status eq 'SOLICITADA'}">
-                                                            <form method="post" action="${ctx}/admin/reservas/${reserva.id}/aprovar"><%@ include file="/WEB-INF/jsp/fragments/csrf.jspf" %><button type="submit" class="btn btn-primary">Aprovar</button></form>
-                                                            <form method="post" action="${ctx}/admin/reservas/${reserva.id}/negar" class="stack-form compact-form reservation-denial-form"><%@ include file="/WEB-INF/jsp/fragments/csrf.jspf" %><label class="field"><span>Motivo da negativa</span><textarea name="motivo" rows="2" required></textarea></label><button type="submit" class="btn btn-danger">Negar</button></form>
+                                                            <div class="reservation-actions">
+                                                                <div class="reservation-action-buttons">
+                                                                    <form method="post" action="${ctx}/admin/reservas/${reserva.id}/aprovar" class="reservation-approve-form">
+                                                                        <%@ include file="/WEB-INF/jsp/fragments/csrf.jspf" %>
+                                                                        <button type="submit" class="btn btn-primary">Aprovar</button>
+                                                                    </form>
+                                                                    <button type="button" class="btn btn-danger reservation-denial-toggle" data-reservation-denial-toggle aria-expanded="false" aria-controls="reservation-denial-${reserva.id}">Negar</button>
+                                                                </div>
+                                                                <form id="reservation-denial-${reserva.id}" method="post" action="${ctx}/admin/reservas/${reserva.id}/negar" class="stack-form compact-form reservation-denial-form" data-reservation-denial-form hidden>
+                                                                    <%@ include file="/WEB-INF/jsp/fragments/csrf.jspf" %>
+                                                                    <label class="field">
+                                                                        <span>Motivo da negativa</span>
+                                                                        <textarea name="motivo" rows="2" required></textarea>
+                                                                    </label>
+                                                                    <button type="submit" class="btn btn-danger">Confirmar negativa</button>
+                                                                </form>
+                                                            </div>
                                                         </c:when>
-                                                        <c:otherwise><strong>Respons&aacute;vel:</strong> <c:out value="${reserva.decididaPor}"/><br><strong>Data:</strong> <c:out value="${reserva.decididaEm}"/></c:otherwise>
+                                                        <c:otherwise><c:if test="${not empty reserva.decididaPor}"><strong>Respons&aacute;vel:</strong> <c:out value="${reserva.decididaPor}"/><br><strong>Data:</strong> <c:out value="${reserva.decididaEm}"/></c:if><c:if test="${reserva.cancelavel}"><form method="post" action="${ctx}/admin/reservas/${reserva.id}/cancelar" data-confirm="Cancelar esta reserva?" class="reservation-cancel-form"><%@ include file="/WEB-INF/jsp/fragments/csrf.jspf" %><button type="submit" class="btn btn-danger">Cancelar reserva</button></form></c:if></c:otherwise>
                                                     </c:choose>
                                                 </td>
                                             </tr>
