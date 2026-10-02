@@ -46,4 +46,14 @@ public class Reserva {
 
     @Column(name = "criada_em", nullable = false)
     private Instant criadaEm;
+
+    @Column(name = "decidida_em")
+    private Instant decididaEm;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "decidida_por_usuario_id")
+    private Usuario decididaPor;
+
+    @Column(name = "motivo_negacao", columnDefinition = "text")
+    private String motivoNegacao;
 }

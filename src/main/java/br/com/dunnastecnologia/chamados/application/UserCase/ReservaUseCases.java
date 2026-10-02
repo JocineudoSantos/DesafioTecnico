@@ -47,4 +47,13 @@ public interface ReservaUseCases {
             Instant inicio,
             Instant fim
     );
+
+    /** Lista as reservas para a consulta e moderação administrativa. */
+    List<Reserva> listarParaAdministracao(AuthenticatedUser administrador);
+
+    /** Aprova uma solicitação somente se não houver conflito aprovado para a mesma área. */
+    Reserva aprovar(AuthenticatedUser administrador, UUID reservaId);
+
+    /** Nega uma solicitação e registra a justificativa informada. */
+    Reserva negar(AuthenticatedUser administrador, UUID reservaId, String motivo);
 }

@@ -46,7 +46,6 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - **Correção:** ampliei o escopo do tratamento para incluir esse controller. A tentativa agora retorna à listagem e mostra a mensagem de e-mail já cadastrado. Acrescentei um teste de regressão.
 - **Validação:** o teste de regressão passou e a suíte completa ficou com 57 testes aprovados.
 
-
 ## Codificação de símbolos nas telas
 
 - **Problema encontrado:** o símbolo de fechar alertas era exibido como `Ã` no login e nas mensagens compartilhadas.
@@ -56,6 +55,7 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 - **Problema adicional:** o separador entre autor e data do comentário, e entre tipo e tamanho do anexo, também aparecia corrompido nas telas de chamados.
 - **Correção:** substituí os caracteres literais por `&bull;` nos detalhes de chamados do morador, colaborador e administrador.
 - **Validação e limite:** reconstruí e iniciei o container da pasta `DesafioTecnico`; `/login?error=true` respondeu HTTP 200. Os separadores `&bull;` foram incluídos no build das telas de morador, colaborador e administrador. O Dockerfile ignorou os testes automatizados neste build, então a conferência visual dos detalhes deve ser feita no navegador.
+
 
 ## Áreas comuns e solicitação de reservas — primeira etapa
 
@@ -89,30 +89,43 @@ As alterações desta etapa corrigem a organização e a configuração dos test
 
 - A disponibilidade exibida é uma consulta naquele instante. Pode mudar antes de uma solicitação ou futura aprovação administrativa.
 - A aprovação, negativa com justificativa, cancelamento e calendário administrativo não fazem parte desta etapa.
-- A consulta seguida do salvamento não protege contra duas aprovações concorrentes. A próxima etapa precisa tornar a aprovação atômica no PostgreSQL e incluir teste concorrente; até lá, a garantia contra dupla aprovação não está implementada.
+- Na primeira etapa, a consulta seguida do salvamento ainda não protegia contra duas aprovações concorrentes; essa limitação foi resolvida nesta segunda etapa com bloqueio transacional no PostgreSQL e teste concorrente.
 - Foram adicionados testes unitários para as regras dos serviços, testes web para navegação/perfis e testes de repositório com PostgreSQL via Testcontainers. No `mvn verify`, a suíte teve 72 testes aprovados, sem falhas, erros ou ignorados. JaCoCo mediu 77,4% de cobertura de linhas nas classes incluídas para a funcionalidade, acima do mínimo de 40% definido no desafio.
-- **Próxima etapa:** fila administrativa de solicitações, aprovação protegida contra conflito concorrente e negativa com justificativa. Cancelamento e calendário ficam para etapas posteriores, documentadas abaixo conforme forem implementadas.
+- **Continuidade:** a moderação administrativa foi registrada na etapa seguinte. O cancelamento e a interface de lista/calendário serão documentados em etapas próprias.
 
-## Codificação UTF-8 nas respostas
+## Áreas comuns e reservas — segunda etapa: decisões administrativas
 
-- **Problema encontrado:** os acentos do título da aba e dos rótulos de áreas comuns ainda apareciam corrompidos, embora os JSPs estivessem gravados corretamente e o servidor declarasse UTF-8.
-- **Decisão e justificativa:** explicitei UTF-8 nos recursos Maven e forcei essa codificação nas respostas do servidor. Para o título dinâmico e os rótulos desta funcionalidade, usei entidades HTML, que o navegador decodifica sem depender da codificação dos caracteres acentuados no arquivo.
-- **Validação:** `mvn -DskipTests package` e os 5 testes web da funcionalidade concluíram sem erros; os testes verificam também o título da página. Reconstruí o container da aplicação. `/login` respondeu HTTP 200 com `Content-Type: text/html; charset=UTF-8`.
-- **Compatibilidade Spring Boot 4:** substituí as propriedades antigas `server.servlet.encoding.*` por `spring.servlet.encoding.*`, prefixo esperado na versão usada. O build Maven e a inicialização do container concluíram; o Flyway aceitou as 19 migrações existentes.
-- **Integridade Flyway:** não manter comentários novos em V19, pois a migração já foi aplicada e qualquer alteração muda seu checksum. Restaurei o SQL original da V19, sem executar `repair`; comentários explicativos devem ficar na especificação ou em uma futura migração.
-- **Correção adicional:** os cabeçalhos `Descrição`, `Situação` e `Ações` da tabela de áreas também passaram a usar entidades HTML após continuarem corrompidos na tela.
-- **Correção no histórico do morador:** substituí por entidades HTML os acentos restantes em `Área`, `Início`, `Meu histórico`, `Solicitações aparecerão` e textos sobre período.
+### Comportamento implementado
+
+- O administrador pode consultar as reservas para moderação; a interface dessa consulta será entregue na etapa seguinte.
+- Somente reservas `SOLICITADA` podem ser aprovadas ou negadas. Decisões repetidas ou sobre estados finais são recusadas.
+- A aprovação verifica novamente a sobreposição com reservas `APROVADA` da mesma área no momento da decisão. Intervalos adjacentes continuam permitidos.
+- A negação exige motivo não vazio; espaços externos são removidos antes de persistir. O motivo não recebe limite adicional porque o enunciado não define um.
+- Aprovação e negação registram o instante e o usuário responsável. Esses dados, junto ao estado e ao motivo quando houver, dão rastreabilidade à decisão.
+
+### Decisões técnicas, alternativas e riscos
+
+- **Concorrência:** cada aprovação bloqueia a solicitação e, em seguida, a linha da área no PostgreSQL. Decisões de solicitações diferentes para a mesma área são serializadas antes da consulta de conflito. Escolhi esse bloqueio pessimista em vez de depender apenas de uma consulta seguida de atualização, que permitiria corrida, e em vez de introduzir uma extensão PostgreSQL e uma restrição de exclusão para intervalos.
+- **Limite da garantia:** a proteção depende das aprovações passarem pelo serviço da aplicação. Escritas diretas no banco que não usem o mesmo bloqueio podem contornar a regra. O bloqueio por área pode reduzir a concorrência quando muitas aprovações da mesma área ocorrem ao mesmo tempo.
+- **Histórico:** uma nova migração Flyway adiciona instante, autor e justificativa da decisão; migrações já aplicadas permanecem inalteradas. O autor referencia `usuarios`, pois a identidade autenticada é a origem confiável do administrador.
+- **Fora desta parte:** telas e calendário administrativo, cancelamento, notificações e integrações externas. A próxima parte de interface deverá expor a consulta administrativa e a agenda/calendário exigidos pelo desafio.
+- **Com mais tempo:** acrescentaria auditoria imutável de todas as transições e testes de carga com muitas decisões para medir contenção por área.
+
+### Validação desta parte
+
+- Foram incluídos testes unitários para aprovação, conflito, negativa com motivo e transições inválidas, além de um teste de integração em PostgreSQL para aprovações conflitantes simultâneas.
+- `mvn verify`: 78 testes executados, sem falhas, erros ou testes ignorados. O PostgreSQL 16 confirmou que, em duas aprovações simultâneas conflitantes, somente uma é aprovada. Outro teste aplicou as 20 migrações Flyway em um PostgreSQL vazio. A verificação JaCoCo da funcionalidade registrou 79,9% de cobertura de linhas e passou o mínimo exigido de 40%.
 
 ## Uso de inteligência artificial
 
 - **Ferramentas usadas:** OpenAI Codex e um agente delegado, para inspecionar e implementar alterações em código, testes e documentação, investigar falhas e executar comandos de compilação e teste.
 - **Sugestões aceitas da IA:** usar Testcontainers com PostgreSQL em vez de H2; simular `JwtService` sem substituir o filtro; restaurar a configuração do Maven Wrapper; e modelar áreas/reservas em nova migração Flyway com validação de regras no serviço.
 - **Sugestões modificadas ou rejeitadas:** a primeira tentativa de simular o próprio filtro JWT foi revertida quando os testes mostraram que as requisições eram interrompidas antes dos controllers. A possibilidade de adaptar a consulta para H2 foi rejeitada porque o desafio e o projeto usam PostgreSQL e o SQL é específico desse banco.
-- **Validação do conteúdo e do código:** conferi as declarações de pacote e imports, revisei o SQL e a versão do PostgreSQL no Compose, compilei e executei a suíte completa com JDK 21 e Docker Desktop. Também iniciei o Maven Wrapper para confirmar sua configuração e subi a aplicação completa pelo Compose. Para a etapa de áreas e reservas, executei `mvn verify`: 72 testes passaram; JaCoCo mediu 77,4% de cobertura de linhas nas classes incluídas para a funcionalidade e aprovou o mínimo de 40%. O Compose iniciou a aplicação e o Flyway validou 19 migrações e aplicou a V19 no PostgreSQL 16; `/login` respondeu HTTP 200.
+- **Validação do conteúdo e do código:** conferi as declarações de pacote e imports, revisei o SQL e a versão do PostgreSQL no Compose, compilei e executei a suíte completa com JDK 21 e Docker Desktop. Também iniciei o Maven Wrapper para confirmar sua configuração e subi a aplicação completa pelo Compose. Após a segunda etapa de áreas e reservas, `mvn verify` executou 78 testes sem falhas, erros ou ignorados; JaCoCo mediu 79,9% de cobertura de linhas nas classes incluídas para a funcionalidade e aprovou o mínimo de 40%. Os testes de concorrência e das 20 migrações usaram PostgreSQL 16 por Testcontainers.
 - **Decisões não delegadas à IA:** o banco alvo PostgreSQL, a preservação do SQL e das regras de negócio, o escopo desta correção e a decisão de não tratar uma suíte parcial como aprovada foram definidos a partir do desafio e das orientações do usuário. A IA auxiliou na implementação e verificação, não definiu critérios de negócio ou aceite.
 
 ## Resultado da validação
 
-A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após esta etapa, `mvn verify` terminou com **72 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo cobriu controllers, serviços, modelos e formulários da funcionalidade: **77,4%** de linhas, acima do mínimo de 40%.
+A execução anterior à funcionalidade de áreas e reservas terminou com 57 testes aprovados. Após a segunda etapa, `mvn verify` terminou com **78 testes executados, 0 falhas, 0 erros e 0 ignorados**. Os testes de repositório e das migrações usaram PostgreSQL 16 pelo Testcontainers. A verificação JaCoCo das classes da funcionalidade registrou **79,9%** de cobertura de linhas, acima do mínimo de 40%.
 
 A execução de `docker compose up --build -d` iniciou a aplicação e o PostgreSQL em containers. O Flyway validou 19 migrações e aplicou a V19; a aplicação iniciou sem erros. A rota `/login` respondeu HTTP 200; `/admin`, `/colaborador` e `/morador` redirecionaram para `/login` sem sessão. Para evitar publicar segredos locais, `.env` foi criado a partir de `.env.example` e adicionado ao `.gitignore`.

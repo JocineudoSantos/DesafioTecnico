@@ -6,14 +6,17 @@ import br.com.dunnastecnologia.chamados.domain.model.AreaComum;
 import br.com.dunnastecnologia.chamados.domain.model.Morador;
 import br.com.dunnastecnologia.chamados.domain.model.Reserva;
 import br.com.dunnastecnologia.chamados.domain.model.ReservaStatus;
+import br.com.dunnastecnologia.chamados.domain.model.Usuario;
 import br.com.dunnastecnologia.chamados.infrastructure.exception.BusinessRuleException;
 import br.com.dunnastecnologia.chamados.infrastructure.exception.ResourceNotFoundException;
+import br.com.dunnastecnologia.chamados.infrastructure.repository.AdministradorRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.AreaComumRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.MoradorRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.repository.ReservaRepository;
 import br.com.dunnastecnologia.chamados.infrastructure.service.support.AuthenticatedUserValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -27,6 +30,7 @@ public class ReservaService implements ReservaUseCases {
     private final ReservaRepository reservaRepository;
     private final AreaComumRepository areaRepository;
     private final MoradorRepository moradorRepository;
+    private final AdministradorRepository administradorRepository;
     private final AuthenticatedUserValidator userValidator;
     private final Clock clock;
 
@@ -34,12 +38,14 @@ public class ReservaService implements ReservaUseCases {
             ReservaRepository reservaRepository,
             AreaComumRepository areaRepository,
             MoradorRepository moradorRepository,
+            AdministradorRepository administradorRepository,
             AuthenticatedUserValidator userValidator,
             Clock clock
     ) {
         this.reservaRepository = reservaRepository;
         this.areaRepository = areaRepository;
         this.moradorRepository = moradorRepository;
+        this.administradorRepository = administradorRepository;
         this.userValidator = userValidator;
         this.clock = clock;
     }
@@ -91,6 +97,67 @@ public class ReservaService implements ReservaUseCases {
         reserva.setStatus(ReservaStatus.SOLICITADA);
         reserva.setCriadaEm(clock.instant());
         return reservaRepository.save(reserva);
+    }
+
+    @Override
+    public List<Reserva> listarParaAdministracao(AuthenticatedUser administrador) {
+        userValidator.assertAdministrador(administrador);
+        return reservaRepository.listarTodasParaAdministracao();
+    }
+
+    @Override
+    @Transactional
+    public Reserva aprovar(AuthenticatedUser administrador, UUID reservaId) {
+        userValidator.assertAdministrador(administrador);
+        Reserva reserva = obterSolicitacaoBloqueada(reservaId);
+        UUID areaId = reserva.getAreaComum().getId();
+        areaRepository.findByIdForUpdate(areaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Área comum não encontrada"));
+        validarPendente(reserva);
+        if (reservaRepository.existeSobreposicao(
+                areaId, ReservaStatus.APROVADA, reserva.getInicio(), reserva.getFim())) {
+            throw new BusinessRuleException("Não é possível aprovar: o período conflita com outra reserva aprovada.");
+        }
+
+        reserva.setStatus(ReservaStatus.APROVADA);
+        registrarDecisao(reserva, administrador);
+        return reservaRepository.save(reserva);
+    }
+
+    @Override
+    @Transactional
+    public Reserva negar(AuthenticatedUser administrador, UUID reservaId, String motivo) {
+        userValidator.assertAdministrador(administrador);
+        if (!StringUtils.hasText(motivo)) {
+            throw new BusinessRuleException("Informe um motivo para negar a solicitação.");
+        }
+        Reserva reserva = obterSolicitacaoBloqueada(reservaId);
+        validarPendente(reserva);
+        reserva.setStatus(ReservaStatus.NEGADA);
+        reserva.setMotivoNegacao(motivo.strip());
+        registrarDecisao(reserva, administrador);
+        return reservaRepository.save(reserva);
+    }
+
+    private Reserva obterSolicitacaoBloqueada(UUID reservaId) {
+        if (reservaId == null) {
+            throw new BusinessRuleException("Selecione uma solicitação.");
+        }
+        return reservaRepository.findByIdForUpdate(reservaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reserva não encontrada"));
+    }
+
+    private void validarPendente(Reserva reserva) {
+        if (reserva.getStatus() != ReservaStatus.SOLICITADA) {
+            throw new BusinessRuleException("Somente solicitações pendentes podem ser decididas.");
+        }
+    }
+
+    private void registrarDecisao(Reserva reserva, AuthenticatedUser administrador) {
+        Usuario autor = administradorRepository.findByIdAndAtivoTrue(administrador.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Administrador não encontrado"));
+        reserva.setDecididaPor(autor);
+        reserva.setDecididaEm(clock.instant());
     }
 
     private AreaComum obterAreaAtiva(UUID areaId) {
